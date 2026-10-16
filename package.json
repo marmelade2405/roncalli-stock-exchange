@@ -1,0 +1,29 @@
+{
+  "name": "stock-market-exchange",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "start": "node --env-file=.env dist/server/server/main.js",
+    "dev": "tsx --env-file=.env src/server/main.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^24.19.1",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.3",
+    "vitest": "^5.0.3"
+  }
+}
