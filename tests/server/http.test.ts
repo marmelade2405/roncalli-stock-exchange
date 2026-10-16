@@ -13,7 +13,7 @@ it('invalid_phase_or_locked_command_is_409', async () => {
   const app = await openApp(); const cookie = await app.cookie();
   expect((await app.command({ type: 'crash' }, 0, cookie)).status).toBe(409);
   await app.controller.dispatch({ type: 'start' }, 0);
-  app.time(1_790_000);
+  app.time(1_190_000);
   expect((await app.command({ type: 'override', scope: 'normal', drinkId: 'bier', value: 250 }, 1, cookie)).status).toBe(409);
 });
 it('stale_revision_is_409', async () => {

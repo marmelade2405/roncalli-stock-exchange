@@ -1,0 +1,6 @@
+import type {DisplayState} from '../shared/protocol.js';
+export function renderBreakingNews(container:HTMLElement,news:NonNullable<DisplayState['news']>,remainingMs:number,drinkName=news.drinkId):void{
+  if(container.dataset.newsId!==news.id){container.dataset.newsId=news.id;container.innerHTML='<div class="news-label"><span class="news-live-dot"></span> BREAKING NEWS</div><div class="news-direction"></div><div class="news-drink">BETROFFENER KURS · <strong data-testid="breaking-news-drink"></strong></div><h2 class="news-headline"></h2><p class="news-body"></p><div class="news-foot"><span>SATIRE · FIKTIVE BÖRSENMELDUNG</span><span class="news-count mono"></span></div><div class="news-glow" aria-hidden="true"></div>';container.querySelector('.news-headline')!.textContent=news.headline;container.querySelector('.news-body')!.textContent=news.body;container.querySelector('.news-direction')!.textContent=news.direction==='down'?'↓ VERKAUFSWELLE AM GETRÄNKEMARKT':'↑ KAUFRAUSCH AM GETRÄNKEMARKT';container.dataset.direction=news.direction;}
+  container.querySelector('[data-testid="breaking-news-drink"]')!.textContent=drinkName;
+  container.querySelector('.news-count')!.textContent=`KURSVERÖFFENTLICHUNG IN ${Math.max(0,Math.ceil(remainingMs/1000))} S`;
+}

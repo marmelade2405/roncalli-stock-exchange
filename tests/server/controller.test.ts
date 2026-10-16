@@ -38,7 +38,7 @@ it('overdue_normal_round_is_recovered_once', async () => {
   const storage = memory(state); const options = { now: () => 7_200_000, rng: midpointRng, drinks: [makeDrink()] };
   const first = await createController(storage.repository, options);
   expect(first.publicSnapshot().state.prices).toEqual({ bier: 250 });
-  expect(first.publicSnapshot().state.deadline).toBe(9_000_000);
+  expect(first.publicSnapshot().state.deadline).toBe(8_400_000);
   expect(storage.state()?.history).toHaveLength(1);
   const second = await createController(storage.repository, { ...options, rng: () => 0 });
   expect(second.adminSnapshot()).toEqual(first.adminSnapshot());
@@ -51,7 +51,7 @@ it('expired_crash_publishes_saved_recovery_once', async () => {
   const storage = memory(state);
   const controller = await createController(storage.repository, { now: () => 500_000, rng: midpointRng, drinks: [makeDrink()] });
   expect(controller.publicSnapshot().state.prices).toEqual({ bier: 150 });
-  expect(controller.publicSnapshot().state.deadline).toBe(2_300_000);
+  expect(controller.publicSnapshot().state.deadline).toBe(1_700_000);
   await controller.tick();
   expect(storage.state()?.history).toHaveLength(2);
 });
@@ -74,7 +74,7 @@ it('failed_publication_retries_once_without_consuming_inputs', async () => {
   const controller = await createController(storage.repository, { now: () => now, rng: midpointRng, drinks: [makeDrink()] });
   await controller.dispatch({ type: 'start' }, 0);
   await controller.dispatch({ type: 'override', scope: 'normal', drinkId: 'bier', value: 250 }, 1);
-  now = 1_800_000; storage.fault(true);
+  now = 1_200_000; storage.fault(true);
   await expect(controller.tick()).rejects.toThrow();
   expect(controller.publicSnapshot().state.prices).toEqual({ bier: 200 });
   expect(controller.adminSnapshot().state.overrides.normal).toEqual({ bier: 250 });

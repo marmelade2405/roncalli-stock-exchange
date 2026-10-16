@@ -1,5 +1,5 @@
 import type { RoundKind } from '../shared/protocol.js';
-export function renderTransition(container: HTMLElement, kind: RoundKind, remainingMs: number): void {
+export function renderTransition(container: HTMLElement, kind: RoundKind, remainingMs: number, durationMs=10_000): void {
   if (container.dataset.kind !== kind) {
     container.dataset.kind = kind;
     const path = kind === 'crash' ? 'M0 40 L110 70 L180 45 L275 115 L340 100 L435 180 L510 150 L625 210 L800 230' : kind === 'recovery' ? 'M0 225 L110 190 L185 205 L275 140 L345 155 L435 90 L510 115 L625 45 L800 15' : 'M0 170 L110 100 L185 125 L275 40 L345 95 L435 70 L510 130 L625 65 L800 90';
@@ -7,8 +7,8 @@ export function renderTransition(container: HTMLElement, kind: RoundKind, remain
     container.querySelector('.transition-tag')!.textContent = kind === 'crash' ? 'EVENT / MARKTUNTERBRECHUNG' : kind === 'recovery' ? 'ERHOLUNG / NEUSTART' : 'PREISRUNDE / KURSWECHSEL';
     container.querySelector('.transition-title')!.textContent = kind === 'crash' ? 'Börsencrash.' : kind === 'recovery' ? 'Der Markt erholt sich.' : 'Neue Kurse. Neue Chancen.';
   }
-  const remaining = Math.max(0, Math.min(10_000, remainingMs));
+  const remaining = Math.max(0, Math.min(durationMs, remainingMs));
   container.querySelector('.transition-count')!.textContent = String(Math.ceil(remaining / 1000)).padStart(2, '0');
-  (container.querySelector('.market-line') as SVGElement).style.strokeDashoffset = String(1000 * remaining / 10_000);
-  container.querySelector<HTMLElement>('.transition-progress div')!.style.width = `${(1 - remaining / 10_000) * 100}%`;
+  (container.querySelector('.market-line') as SVGElement).style.strokeDashoffset = String(1000 * remaining / durationMs);
+  container.querySelector<HTMLElement>('.transition-progress div')!.style.width = `${(1 - remaining / durationMs) * 100}%`;
 }

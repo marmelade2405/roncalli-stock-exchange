@@ -1,5 +1,7 @@
 # Abnahme am 08.10.2026
 
+Diese Seite dokumentiert die ursprüngliche Version. Die aktuelle Erweiterung mit 20-Minuten-Runden, Specials, Simulation und Reset ist in [events-verification.md](events-verification.md) dokumentiert.
+
 Geprüft auf Windows mit Node.js 24.16.0 und Microsoft Edge. Die Testuhr simuliert den gesamten Abend; reale Betriebsdaten und Zugangsdaten werden dabei nicht verwendet.
 
 ## Ausgeführte Prüfungen

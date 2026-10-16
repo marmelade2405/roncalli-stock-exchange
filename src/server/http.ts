@@ -5,6 +5,7 @@ import { DomainError, type CommandRequest, type MarketCommand } from '../domain/
 import { RevisionConflictError, type MarketController } from './controller.js';
 import { createAuth, isAllowedOrigin } from './auth.js';
 import { attachRealtime } from './realtime.js';
+import {isSimulationSpeed} from '../domain/simulation-speed.js';
 import type { ServerConfig } from './config.js';
 class HttpError extends Error { constructor(public status: number, public code: string, message: string) { super(message); } }
 const record = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -26,10 +27,16 @@ function parseCommand(value: Record<string, unknown>): CommandRequest {
   const command = value.command;
   const invalid = () => { throw new HttpError(400, 'INVALID_INPUT', 'Der Bedienbefehl ist ungültig.'); };
   switch (command.type) {
-    case 'start': case 'crash': break;
+    case 'start': case 'crash': case 'cancel-crash': case 'step': break;
     case 'view': if (command.mode !== 'overview' && command.mode !== 'ticker') invalid(); break;
     case 'override': if (!['normal', 'crash'].includes(String(command.scope)) || typeof command.drinkId !== 'string' || (command.value !== null && (typeof command.value !== 'number' || !Number.isSafeInteger(command.value)))) invalid(); break;
-    case 'configure': if (!Array.isArray(command.drinks)) invalid(); break;
+    case 'configure': if (!Array.isArray(command.drinks) || (command.parameters !== undefined && !record(command.parameters)) || (command.specials !== undefined && !Array.isArray(command.specials)) || (command.specialOrder !== undefined && !Array.isArray(command.specialOrder))) invalid(); break;
+    case 'correct': if (typeof command.drinkId !== 'string' || !Number.isSafeInteger(command.value)) invalid(); break;
+    case 'special': if (typeof command.specialId !== 'string') invalid(); break;
+    case 'reorder-specials': if (!Array.isArray(command.ids) || command.ids.some(id=>typeof id !== 'string')) invalid(); break;
+    case 'reset': if (command.kind !== 'evening' && command.kind !== 'factory') invalid(); break;
+    case 'simulation': if (typeof command.enabled !== 'boolean' || (command.speed !== undefined && !isSimulationSpeed(command.speed))) invalid(); break;
+    case 'pause': if (typeof command.paused !== 'boolean') invalid(); break;
     default: invalid();
   }
   return { expectedRevision: value.expectedRevision as number, command: command as unknown as MarketCommand };
@@ -52,7 +59,7 @@ export function createApplication(config: ServerConfig, controller: MarketContro
     catch { throw new HttpError(400, 'INVALID_INPUT', 'Ungültige Adresse.'); }
     const method = request.method || 'GET';
     if (method === 'GET' && path === '/health') { json(response, 200, { status: 'ok' }); return; }
-    if (method === 'GET' && path === '/api/time') { json(response, 200, { serverNow: now() }); return; }
+    if (method === 'GET' && path === '/api/time') { json(response, 200, controller.timeSnapshot()); return; }
     if (method === 'GET' && path === '/api/state') { json(response, 200, controller.publicSnapshot()); return; }
     if (method === 'GET' && path === '/api/admin/state') { requireAdmin(request); json(response, 200, controller.adminSnapshot()); return; }
     if (method === 'POST' && path === '/api/login') {

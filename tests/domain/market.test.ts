@@ -13,17 +13,17 @@ describe('Marktablauf', () => {
   });
   it('start_preserves_initial_prices', () => {
     const state = started();
-    expect(state.deadline).toBe(1_800_000);
+    expect(state.deadline).toBe(1_200_000);
     expect(state.prices).toEqual({ bier: 200 });
     expect(state.phase).toBe('normal');
   });
   it('normal_round_consumes_only_normal_overrides', () => {
     const state = override(override(started(), 'normal', 250), 'crash', 140);
-    const next = advanceMarket(state, 1_800_000, midpointRng);
+    const next = advanceMarket(state, 1_200_000, midpointRng);
     expect(next.prices).toEqual({ bier: 250 });
     expect(next.overrides).toEqual({ normal: {}, crash: { bier: 140 } });
     expect(next.previousPrices).toEqual({ bier: 200 });
-    expect(next.deadline).toBe(3_600_000);
+    expect(next.deadline).toBe(2_400_000);
   });
   it('crash_discards_old_deadline', () => {
     const pending = applyCommand(started(), { type: 'crash' }, 60_000, midpointRng);
@@ -42,9 +42,9 @@ describe('Marktablauf', () => {
     state = advanceMarket(state, 370_000, midpointRng);
     expect(state.prices).toEqual({ bier: 150 });
     expect(state.overrides.normal).toEqual({ bier: 250 });
-    expect(state.deadline).toBe(2_170_000);
-    expect(advanceMarket(state, 1_800_000, midpointRng).prices).toEqual({ bier: 150 });
-    state = advanceMarket(state, 2_170_000, midpointRng);
+    expect(state.deadline).toBe(1_570_000);
+    expect(advanceMarket(state, 1_200_000, midpointRng).prices).toEqual({ bier: 150 });
+    state = advanceMarket(state, 1_570_000, midpointRng);
     expect(state.prices).toEqual({ bier: 250 });
     expect(state.overrides.normal).toEqual({});
   });
@@ -52,16 +52,16 @@ describe('Marktablauf', () => {
     let state = createMarket([makeDrink()], 0, () => .8);
     expect(state.previews.normal).toEqual({ bier: 220 });
     state = applyCommand(state, { type: 'start' }, 0, midpointRng);
-    state = advanceMarket(state, 1_800_000, () => 0);
+    state = advanceMarket(state, 1_200_000, () => 0);
     expect(state.prices).toEqual({ bier: 220 });
     expect(state.previews.normal).toEqual({ bier: 190 });
   });
   it('locks_exactly_at_ten_seconds', () => {
     const state = started();
-    expect(advanceMarket(state, 1_789_999, midpointRng).phase).toBe('normal');
-    expect(advanceMarket(state, 1_790_000, midpointRng).phase).toBe('transition');
-    expect(() => applyCommand(state, { type: 'crash' }, 1_790_000, midpointRng)).toThrow();
-    expect(() => applyCommand(state, { type: 'override', scope: 'normal', drinkId: 'bier', value: 250 }, 1_790_000, midpointRng)).toThrow();
+    expect(advanceMarket(state, 1_189_999, midpointRng).phase).toBe('normal');
+    expect(advanceMarket(state, 1_190_000, midpointRng).phase).toBe('transition');
+    expect(() => applyCommand(state, { type: 'crash' }, 1_190_000, midpointRng)).toThrow();
+    expect(() => applyCommand(state, { type: 'override', scope: 'normal', drinkId: 'bier', value: 250 }, 1_190_000, midpointRng)).toThrow();
   });
   it('rejects_second_crash', () => {
     const crash = applyCommand(started(), { type: 'crash' }, 10_000, midpointRng);

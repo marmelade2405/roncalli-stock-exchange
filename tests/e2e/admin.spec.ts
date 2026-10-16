@@ -1,5 +1,47 @@
 import type { WebSocketRoute } from '@playwright/test';
 import { test, expect, signIn } from './fixtures.js';
+test('all_business_parameters_are_editable_before_start', async ({ page, testApp }) => {
+  await signIn(page,testApp); await page.getByText('Getränke & Preisgrenzen',{exact:true}).click();
+  for (const key of ['normalMs','crashMs','transitionMs','newsMs','eveningMs','minSpecialGapMs','crashTrendPercent','recoveryTrendPercent','crashAmplitudeFactor','historyChanges','tickerRowMs']) await expect(page.getByTestId(`parameter-${key}`)).toBeEnabled();
+  await page.getByTestId('parameter-normalMs').fill('15'); await page.getByTestId('parameter-crashMs').fill('6');
+  await page.locator('.news-editor').filter({has:page.getByTestId('news-bier-down-headline')}).locator('summary').click();
+  await page.getByTestId('news-bier-down-headline').fill('Biermarkt unter Druck'); await page.getByTestId('news-bier-down-percent').fill('-35');
+  await page.getByTestId('settings-save').click(); await expect(page.locator('#settings-note')).toContainText('Vor dem');
+  await page.reload(); await page.getByText('Getränke & Preisgrenzen',{exact:true}).click();
+  await expect(page.getByTestId('parameter-normalMs')).toHaveValue('15'); await expect(page.getByTestId('parameter-crashMs')).toHaveValue('6');
+  await expect(page.getByTestId('news-bier-down-headline')).toHaveValue('Biermarkt unter Druck');
+  for(const [width,height,label]of [[1440,900,'laptop'],[768,1024,'tablet'],[390,844,'phone']]as const){await page.setViewportSize({width,height});await page.screenshot({path:`.artifacts/previews/admin-${label}.png`,fullPage:true});}
+});
+test('instant_price_is_independent_of_next_override',async ({page,testApp})=>{
+  await signIn(page,testApp); await page.getByTestId('normal-bier-input').fill('2,70'); await page.getByTestId('normal-bier-input').blur();
+  await expect(page.getByTestId('normal-bier-status')).toContainText('Gespeichert');
+  await page.getByTestId('current-bier-input').fill('2,50'); await page.getByTestId('current-bier-save').click();
+  await expect(page.getByTestId('current-bier-value')).toContainText('2,50'); await expect(page.getByTestId('current-bier-status')).toContainText('Gespeichert');
+  await expect(page.getByTestId('normal-bier-input')).toHaveValue('2,70');
+});
+test('instant_price_error_keeps_draft',async ({page,testApp})=>{
+  await signIn(page,testApp); await page.getByTestId('current-bier-input').fill('2,05'); await page.getByTestId('current-bier-save').click();
+  await expect(page.getByTestId('current-bier-status')).toHaveAttribute('role','alert'); await expect(page.getByTestId('current-bier-input')).toHaveValue('2,05');
+  await expect(page.getByTestId('current-bier-value')).toContainText('2,00');
+});
+test('instant_price_locked_during_transition',async ({page,testApp})=>{
+  await signIn(page,testApp); await page.getByRole('button',{name:'Markt starten',exact:true}).click();
+  await page.getByRole('button',{name:'Börsencrash auslösen',exact:true}).click();
+  await expect(page.getByTestId('current-bier-input')).toBeDisabled(); await expect(page.getByTestId('current-bier-save')).toBeDisabled();
+});
+test('reset_while_price_response_pending_does_not_clear_new_draft',async ({page,testApp})=>{
+  await signIn(page,testApp); let release!:()=>void, captured!:()=>void;
+  const gate=new Promise<void>(r=>{release=r;}); const received=new Promise<void>(r=>{captured=r;}); let held=false;
+  await page.route('**/api/admin/commands',async route=>{
+    if(held||route.request().postDataJSON().command.type!=='override'){await route.continue();return;} held=true;
+    const response=await route.fetch(); captured(); await gate; await route.fulfill({response});
+  });
+  await page.getByTestId('normal-bier-input').fill('2,50'); await page.getByTestId('normal-bier-input').blur(); await received;
+  await testApp.externalCommand({type:'reset',kind:'evening'}); await expect(page.getByTestId('normal-bier-input')).toHaveValue('');
+  await page.getByTestId('normal-bier-input').fill('2,40');
+  const finished=page.waitForEvent('requestfinished',{predicate:r=>r.url().endsWith('/api/admin/commands')}); release(); await finished;
+  await page.getByTestId('normal-bier-input').blur(); await expect(page.getByTestId('normal-bier-effective')).toContainText('2,40');
+});
 test('stored_preview_survives_reload', async ({ page, testApp }) => {
   await signIn(page, testApp); const value = await page.getByTestId('normal-bier-random').textContent();
   await page.reload(); await expect(page.getByTestId('normal-bier-random')).toHaveText(value!);
@@ -80,7 +122,7 @@ test('login_recovers_when_initial_time_request_fails', async ({ page, testApp })
   await signIn(page, testApp);
   await expect(page.getByRole('button', { name: 'Markt starten', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Markt starten', exact: true }).click();
-  await expect(page.getByTestId('countdown')).toHaveText('30:00');
+  await expect(page.getByTestId('countdown')).toHaveText('20:00');
   await testApp.advanceTo(1000);
-  await expect(page.getByTestId('countdown')).toHaveText('29:59');
+  await expect(page.getByTestId('countdown')).toHaveText('19:59');
 });

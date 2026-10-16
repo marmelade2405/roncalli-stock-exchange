@@ -8,7 +8,7 @@ it('public_projection_excludes_private_values', () => {
   expect(display).not.toHaveProperty('previews');
   expect(display).not.toHaveProperty('overrides');
   expect(display).not.toHaveProperty('transition');
-  expect(display.drinks).toEqual([{ id: 'bier', name: 'Bier', category: 'Bier' }]);
+  expect(display.drinks).toEqual([{ id: 'bier', name: 'Bier', category: 'Bier',minCents:100,maxCents:300,averageCents:200 }]);
 });
 it('admin_sees_pending_prices_but_guest_does_not', () => {
   let state = createMarket([makeDrink()], 0, midpointRng);

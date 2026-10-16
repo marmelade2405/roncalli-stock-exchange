@@ -25,11 +25,11 @@ test('evening_flow_preserves_previews_and_resets_timer', async ({ page, context,
   await expect(first.getByTestId('display-waiting')).toBeVisible();
   await expect(second.getByTestId('display-price-bier')).toContainText('1,50');
   await expect(page.getByTestId('normal-bier-input')).toHaveValue('2,50');
-  await expect(second.getByTestId('display-countdown')).toHaveText('30:00');
+  await expect(second.getByTestId('display-countdown')).toHaveText('20:00');
   blocked = false; await first.reload(); await expect(first.getByTestId('display-price-bier')).toContainText('1,50');
   await page.getByRole('button', { name: 'Laufliste', exact: true }).click();
   await expect(first.getByTestId('display-ticker')).toBeVisible(); await expect(second.getByTestId('display-ticker')).toBeVisible();
-  await testApp.advanceTo(2_170_000);
+  await testApp.advanceTo(1_570_000);
   await expect(page.getByTestId('normal-bier-input')).toHaveValue('');
   await page.getByRole('button', { name: 'Übersicht', exact: true }).click();
   await expect(first.getByTestId('display-price-bier')).toContainText('2,50'); await expect(second.getByTestId('display-price-bier')).toContainText('2,50');

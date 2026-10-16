@@ -35,5 +35,10 @@ export function attachRealtime(server: Server, controller: MarketController, aut
     }
   }, 15_000);
   heartbeat.unref();
-  return { revalidate, async close() { clearInterval(heartbeat); unsubscribe(); for (const socket of peers.keys()) socket.terminate(); await new Promise<void>(resolve => sockets.close(() => resolve())); } };
+  const snapshots = setInterval(() => {
+    revalidate();
+    for (const [socket,peer] of peers) if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(peer.role === 'admin' ? controller.adminSnapshot() : controller.publicSnapshot()));
+  },5000);
+  snapshots.unref();
+  return { revalidate, async close() { clearInterval(heartbeat); clearInterval(snapshots); unsubscribe(); for (const socket of peers.keys()) socket.terminate(); await new Promise<void>(resolve => sockets.close(() => resolve())); } };
 }

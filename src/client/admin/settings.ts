@@ -1,55 +1,31 @@
-import type { AdminState, DrinkConfig } from '../shared/protocol.js';
+import type { AdminState, DrinkConfig, PreparedConfig, MarketParameters, SpecialDefinition } from '../shared/protocol.js';
 import { inputEuro, parseEuro } from '../shared/format.js';
-type Editor = { drink: DrinkConfig; row: HTMLTableRowElement; inputs: Map<string, HTMLInputElement> };
-export function createSettings(root: HTMLElement, add: HTMLButtonElement, save: HTMLButtonElement, submit: (drinks: DrinkConfig[], revision: number, generation: number) => void) {
-  let editors: Editor[] = []; let signature = ''; let dirty = false; let base = 0; let generation = 0; let state: AdminState | null = null;
-  const fields = [['name', 'Name'], ['category', 'Kategorie'], ['startCents', 'Start €'], ['minCents', 'Min €'], ['maxCents', 'Max €'], ['amplitudeCents', 'Schwankung €'], ['stepCents', 'Schritt €']];
-  const initialize = () => { root.innerHTML = `<table><thead><tr>${fields.map(([, label]) => `<th>${label}</th>`).join('')}<th></th></tr></thead><tbody></tbody></table>`; };
-  initialize();
-  function addRow(drink: DrinkConfig) {
-    const row = document.createElement('tr'); const inputs = new Map<string, HTMLInputElement>();
-    for (const [key, label] of fields) {
-      const cell = document.createElement('td'); const input = document.createElement('input');
-      input.type = 'text'; input.className = key === 'name' || key === 'category' ? 'name-input' : '';
-      input.value = key === 'name' || key === 'category' ? drink[key] : inputEuro(drink[key as keyof DrinkConfig] as number);
-      input.setAttribute('aria-label', `${label} für ${drink.name}`); input.inputMode = key.endsWith('Cents') ? 'decimal' : 'text';
-      input.oninput = () => { if (!dirty) base = state!.revision; dirty = true; generation++; };
-      inputs.set(key, input); cell.append(input); row.append(cell);
-    }
-    const remove = document.createElement('button'); remove.textContent = '×'; remove.setAttribute('aria-label', `${drink.name} entfernen`);
-    const editor = { drink, row, inputs };
-    remove.onclick = () => { if (!dirty) base = state!.revision; dirty = true; generation++; editors = editors.filter(e => e !== editor); row.remove(); };
-    const cell = document.createElement('td'); cell.append(remove); row.append(cell); root.querySelector('tbody')!.append(row); editors.push(editor);
+type Editor={drink:DrinkConfig;row:HTMLTableRowElement;inputs:Map<string,HTMLInputElement>};
+const definitions:[keyof MarketParameters,string,string,number,number,number][]=[
+ ['normalMs','Preisrunde','Minuten',60000,1,180],['crashMs','Crashdauer','Minuten',60000,.5,30],['transitionMs','Preiswechsel','Sekunden',1000,1,60],['newsMs','Breaking News','Sekunden',1000,1,60],['eveningMs','Abenddauer','Stunden',3600000,.5,24],['minSpecialGapMs','Abstand der Specials','Minuten',60000,0,10],['crashTrendPercent','Crashtendenz','%',1,-90,0],['recoveryTrendPercent','Erholungstendenz','%',1,0,100],['crashAmplitudeFactor','Crashschwankung','Faktor',1,1,5],['historyChanges','Verlauf','Änderungen',1,1,50],['tickerRowMs','Laufliste je Getränk','Sekunden',1000,1,30],
+];
+export function createSettings(root:HTMLElement,add:HTMLButtonElement,save:HTMLButtonElement,submit:(config:PreparedConfig,revision:number,generation:number)=>void){
+  const parameterRoot=document.getElementById('settings-parameters')!,newsRoot=document.getElementById('settings-news')!;
+  let editors:Editor[]=[],signature='',dirty=false,base=0,generation=0,state:AdminState|null=null;
+  const parameterInputs=new Map<keyof MarketParameters,HTMLInputElement>(),newsInputs=new Map<string,{special:SpecialDefinition;headline:HTMLInputElement;body:HTMLTextAreaElement;percent:HTMLInputElement}>();
+  const fields=[['name','Name'],['category','Kategorie'],['startCents','Start €'],['averageCents','Average €'],['minCents','Min €'],['maxCents','Max €'],['amplitudeCents','Schwankung €'],['stepCents','Schritt €'],['reversionPercent','Rückführung %']];
+  function changed(){if(!dirty)base=state!.revision;dirty=true;generation++;}
+  function initialize(){root.innerHTML=`<table><thead><tr>${fields.map(([,label])=>`<th>${label}</th>`).join('')}<th></th></tr></thead><tbody></tbody></table>`;parameterRoot.replaceChildren();newsRoot.replaceChildren();parameterInputs.clear();newsInputs.clear();}
+  function addRow(drink:DrinkConfig){const row=document.createElement('tr'),inputs=new Map<string,HTMLInputElement>();
+    for(const [key,label]of fields){const cell=document.createElement('td'),input=document.createElement('input');input.type='text';input.className=key==='name'||key==='category'?'name-input':'';input.value=key==='name'||key==='category'?drink[key]:key==='reversionPercent'?String(drink.reversionPercent??75):inputEuro((drink[key as keyof DrinkConfig]??drink.startCents)as number);input.setAttribute('aria-label',`${label} für ${drink.name}`);input.inputMode=key==='name'||key==='category'?'text':'decimal';input.oninput=changed;inputs.set(key,input);cell.append(input);row.append(cell);}
+    const editor={drink,row,inputs},remove=document.createElement('button');remove.textContent='×';remove.setAttribute('aria-label',`${drink.name} entfernen`);remove.onclick=()=>{changed();editors=editors.filter(e=>e!==editor);row.remove();for(const [id,news]of newsInputs)if(news.special.drinkId===drink.id){news.headline.closest('details')!.remove();newsInputs.delete(id);}};const cell=document.createElement('td');cell.append(remove);row.append(cell);root.querySelector('tbody')!.append(row);editors.push(editor);
   }
-  add.onclick = () => {
-    if (!dirty) base = state!.revision; dirty = true; generation++;
-    let index = 1; while (editors.some(e => e.drink.id === `getraenk-${index}`)) index++;
-    addRow({ id: `getraenk-${index}`, name: 'Neues Getränk', category: 'Sonstige', startCents: 200, minCents: 100, maxCents: 300, amplitudeCents: 30, stepCents: 10 });
-  };
-  save.onclick = () => {
-    try {
-      const drinks = editors.map(editor => {
-        const drink = { ...editor.drink };
-        for (const [key, input] of editor.inputs) {
-          if (key === 'name' || key === 'category') drink[key] = input.value.trim();
-          else { const amount = parseEuro(input.value); if (amount === null) throw Error('Alle Preisfelder in den Einstellungen ausfüllen.'); (drink as unknown as Record<string, unknown>)[key] = amount; }
-        }
-        return drink;
-      });
-      submit(drinks, dirty ? base : state!.revision, generation);
-    } catch (error) { document.getElementById('settings-error')!.textContent = (error as Error).message; }
-  };
-  return {
-    update(next: AdminState, connected: boolean) {
-      state = next; const nextSignature = JSON.stringify(state.config);
-      if (signature !== nextSignature && !dirty) { editors = []; initialize(); for (const drink of state.config) addRow(drink); signature = nextSignature; }
-      const locked = !connected || state.phase !== 'ready';
-      root.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input,button').forEach(element => { element.disabled = locked; }); add.disabled = locked; save.disabled = locked;
-      document.getElementById('settings-note')!.textContent = state.phase === 'ready' ? 'Vor dem Marktstart anpassbar' : 'Im laufenden Markt gesperrt';
-    },
-    ownRevision(from: number, to: number) { if (dirty && base === from) base = to; },
-    saved(submittedGeneration: number) { if (generation === submittedGeneration) { dirty = false; signature = ''; } document.getElementById('settings-error')!.textContent = ''; },
-    conflict(revision: number) { base = revision; },
-    reset() { editors = []; dirty = false; signature = ''; state = null; generation++; initialize(); },
-  };
+  function addNews(special:SpecialDefinition){const details=document.createElement('details');details.className='news-editor';const summary=document.createElement('summary');summary.textContent=`${editors.find(e=>e.drink.id===special.drinkId)?.drink.name??special.drinkId} · ${special.direction==='up'?'Kurs steigt':'Kurs fällt'}`;details.append(summary);
+    const headline=document.createElement('input'),body=document.createElement('textarea'),percent=document.createElement('input');headline.value=special.headline;headline.maxLength=160;body.value=special.body;body.maxLength=500;percent.value=String(special.percent);percent.inputMode='decimal';for(const [node,key,label]of [[headline,'headline','Schlagzeile'],[body,'body','Begründung'],[percent,'percent','Wirkung in %']]as const){const wrapper=document.createElement('label');wrapper.textContent=label;node.dataset.testid=`news-${special.id}-${key}`;node.oninput=changed;wrapper.append(node);details.append(wrapper);}newsInputs.set(special.id,{special,headline,body,percent});newsRoot.append(details);
+  }
+  initialize();add.onclick=()=>{changed();let index=1;while(editors.some(e=>e.drink.id===`getraenk-${index}`))index++;const id=`getraenk-${index}`;addRow({id,name:'Neues Getränk',category:'Sonstige',startCents:200,minCents:100,maxCents:300,amplitudeCents:30,stepCents:10});for(const direction of ['up','down']as const)addNews({id:`${id}-${direction}`,drinkId:id,direction,percent:direction==='up'?40:-40,headline:direction==='up'?'Nachfrageschub treibt den Getränkekurs':'Angebotswelle setzt Getränkekurs unter Druck',body:'Fiktive Börsennachricht: Der Markt reagiert auf überraschende Entwicklungen.'});};
+  save.onclick=()=>{try{const drinks=editors.map(editor=>{const drink={...editor.drink};for(const [key,input]of editor.inputs){if(key==='name'||key==='category')drink[key]=input.value.trim();else if(key==='reversionPercent'){if(!input.value.trim())throw Error('Rückführung ausfüllen.');drink.reversionPercent=Number(input.value.replace(',','.'));}else{const amount=parseEuro(input.value);if(amount===null)throw Error(`Bitte ${input.getAttribute('aria-label')} ausfüllen.`);(drink as unknown as Record<string,unknown>)[key]=amount;}}return drink;});
+    const parameters={...state!.parameters};for(const [key,label,unit,factor,min,max]of definitions){const raw=parameterInputs.get(key)!.value.trim(),value=Number(raw.replace(',','.'));if(!raw||!Number.isFinite(value)||value<min||value>max)throw Error(`${label}: ${min}–${max} ${unit} eingeben.`);const scaled=value*factor;if(factor>1&&(!Number.isSafeInteger(scaled)||scaled%1000!==0))throw Error(`${label}: auf ganze Sekunden begrenzen.`);if(key==='historyChanges'&&!Number.isInteger(value))throw Error('Verlauf: ganze Anzahl eingeben.');parameters[key]=scaled;}
+    const variableIds=new Set(drinks.filter(d=>d.minCents!==d.maxCents).map(d=>d.id));
+    const specials=[...newsInputs.values()].filter(e=>variableIds.has(e.special.drinkId)).map(e=>({...e.special,headline:e.headline.value.trim(),body:e.body.value.trim(),percent:Number(e.percent.value.replace(',','.'))}));
+    for(const drink of drinks.filter(d=>variableIds.has(d.id)))for(const direction of ['down','up']as const)if(!specials.some(s=>s.drinkId===drink.id&&s.direction===direction))specials.push({id:`${drink.id}-${direction}`,drinkId:drink.id,direction,percent:direction==='up'?40:-40,headline:direction==='up'?`${drink.name}: Kaufrausch am Getränkemarkt`:`${drink.name}: Verkaufswelle trifft den Kurs`,body:direction==='up'?`Durstige Anleger nehmen ${drink.name} ins Portfolio und treiben den Kurs nach oben.`:`Ein unerwartetes Überangebot setzt ${drink.name} unter Verkaufsdruck.`});
+    const ids=new Set(specials.map(s=>s.id)),specialOrder=state!.specialOrder.filter(id=>ids.has(id));for(const id of ids)if(!specialOrder.includes(id))specialOrder.push(id);submit({drinks,parameters,specials,specialOrder},dirty?base:state!.revision,generation);
+  }catch(error){document.getElementById('settings-error')!.textContent=(error as Error).message;}};
+  return{update(next:AdminState,connected:boolean){state=next;const nextSignature=JSON.stringify([state.config,state.parameters,state.specials,state.specialOrder]);if(signature!==nextSignature&&!dirty){editors=[];initialize();for(const drink of state.config)addRow(drink);for(const [key,label,unit,factor,min,max]of definitions){const wrapper=document.createElement('label');wrapper.textContent=`${label} (${unit})`;const input=document.createElement('input');input.value=String(state.parameters[key]/factor).replace('.',',');input.inputMode='decimal';input.dataset.testid=`parameter-${key}`;input.oninput=changed;const hint=document.createElement('small');hint.textContent=`${min}–${max} ${unit}`;wrapper.append(input,hint);parameterRoot.append(wrapper);parameterInputs.set(key,input);}for(const special of state.specials)addNews(special);signature=nextSignature;}const locked=!connected||state.phase!=='ready';for(const area of [root,parameterRoot,newsRoot])area.querySelectorAll<HTMLInputElement|HTMLButtonElement|HTMLTextAreaElement>('input,button,textarea').forEach(e=>{e.disabled=locked;});for(const editor of editors)if(editor.drink.fixedPriceCents!==undefined)for(const[key,input]of editor.inputs)if(key!=='name'&&key!=='category')input.disabled=true;add.disabled=locked;save.disabled=locked;document.getElementById('settings-note')!.textContent=state.phase==='ready'?(dirty?'Ungespeicherte Einstellungen':'Vor dem Marktstart anpassbar'):'Im laufenden Markt gesperrt';},
+    isDirty(){return dirty;},ownRevision(from:number,to:number){if(dirty&&base===from)base=to;},saved(submittedGeneration:number){if(generation===submittedGeneration){dirty=false;signature='';}document.getElementById('settings-error')!.textContent='';},conflict(revision:number){base=revision;},reset(){editors=[];dirty=false;signature='';state=null;generation++;initialize();}};
 }
