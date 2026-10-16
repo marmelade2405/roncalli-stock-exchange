@@ -3,7 +3,8 @@ export const NORMAL_MS = 1_200_000;
 export const CRASH_MS = 300_000;
 export const TRANSITION_MS = 10_000;
 const drink = (id: string, name: string, category: string, averageCents: number, minCents: number, maxCents: number, amplitudeCents: number): DrinkConfig =>
-  ({ id, name, category, startCents:averageCents,averageCents,reversionPercent:75, minCents, maxCents, amplitudeCents, stepCents: 10 });
+  ({ id, name, category, startCents:averageCents,averageCents,reversionPercent:50, minCents, maxCents, amplitudeCents, stepCents: 10 });
+export const SHOT_TYPES=[['berentzen','Berentzen'],['pfeffi','Pfeffi'],['tequila','Tequila'],['jaegermeister','Jägermeister'],['ouzo','Ouzo'],['rum','Rum'],['erdbeerlimes','Erdbeerlimes']]as const;
 export const DEFAULT_DRINKS: DrinkConfig[] = [
   drink('bier','Bier','Bier',180,110,500,50),
   drink('wein','Wein / Weinschorle','Wein & Aperitif',300,170,600,80),
@@ -17,6 +18,6 @@ export const DEFAULT_DRINKS: DrinkConfig[] = [
   drink('spezi','Spezi','Alkoholfrei',200,100,400,60),
   drink('mate','Mate','Alkoholfrei',200,80,400,60),
   drink('apfelschorle','Apfelschorle','Alkoholfrei',200,100,400,60),
-  drink('shots','Shots','Shots',100,40,300,30),
+  ...SHOT_TYPES.map(([id,name])=>drink(id,name,'Shots',100,40,300,30)),
   {...drink('wasser','Wasser','Dauerhaft gratis',0,0,0,0),fixedPriceCents:0},
 ];

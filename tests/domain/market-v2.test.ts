@@ -80,7 +80,7 @@ it('reset_keeps_or_restores_configuration', () => {
   const reset = command(s,{type:'reset',kind:'evening'},1000);
   expect(reset.phase).toBe('ready'); expect(reset.parameters.normalMs).toBe(600_000); expect(reset.prices.bier).toBe(220); expect(reset.viewMode).toBe('ticker'); expect(reset.specials[0].headline).toBe('Eigene Meldung');
   const factory = command(reset,{type:'reset',kind:'factory'},2000);
-  expect(factory.parameters.normalMs).toBe(1_200_000); expect(factory.prices.bier).toBe(180); expect(factory.viewMode).toBe('overview');
+  expect(factory.parameters.normalMs).toBe(1_200_000); expect(factory.prices.bier).toBe(180); expect(factory.viewMode).toBe('ticker');
 });
 it('reset_stops_pending_event_and_increases_ids', () => {
   const intro = command(live(),{type:'special',specialId:'bier-down'},60_000); const reset = command(intro,{type:'reset',kind:'evening'},65_000);
@@ -93,6 +93,7 @@ it('special_at_limit_is_consumed_without_fake_history', () => {
 });
 it('configured_crash_trends_and_amplitude_are_used', () => {
   const cfg = makeConfiguration([makeDrink()]); cfg.parameters.crashTrendPercent=-20; cfg.parameters.recoveryTrendPercent=50;
+  delete cfg.parameters.crashMinPercent;delete cfg.parameters.crashMaxPercent;
   const s = createMarket(cfg,0,midpointRng); expect(s.previews.crash!.bier).toBe(160);
   const crash = advance(command(command(s,{type:'start'}),{type:'crash'}),10_000); expect(crash.previews.recovery!.bier).toBe(240);
 });

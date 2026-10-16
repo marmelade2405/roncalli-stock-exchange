@@ -1,0 +1,76 @@
+/* The card itself determines chart height, rather than a fixed SVG limit. */
+.overview .quote-card{
+  container-type:size;display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  grid-template-rows:auto minmax(0,1fr);
+  align-items:stretch;column-gap:10px;row-gap:4px;
+  padding:8px 12px;justify-content:normal;
+}
+.overview .quote-main{display:contents}
+.overview .quote-name{
+  grid-column:1;grid-row:1;align-self:center;
+  font-size:clamp(16px,14cqh,26px)!important;
+  line-height:1.1;margin:0;min-height:0;overflow-wrap:anywhere;
+}
+.overview .quote-price-stack{
+  grid-column:2;grid-row:1;display:flex;flex-direction:column;
+  align-items:flex-end;justify-content:center;min-width:0;position:relative;
+}
+.overview .quote-price-stack .price-signal{position:absolute;right:0;top:-5px;margin:0}
+.overview .quote-price{font-size:clamp(25px,22cqh,40px)!important;line-height:1}
+.overview .currency{margin-left:4px}
+.overview .quote-chart{
+  grid-column:1;grid-row:2;align-self:stretch;
+  min-width:0;max-width:none;min-height:0;height:100%;
+}
+.overview .quote-values{
+  grid-column:2;grid-row:2;align-self:center;
+  min-width:0;align-items:flex-end;
+}
+.overview .quote-values .quote-change{
+  font-size:clamp(18px,20cqh,36px)!important;
+  line-height:1.28;white-space:pre-line;text-align:right;
+}
+.overview.compact-quotes [data-chart] svg,.overview [data-chart] svg{height:100%!important}
+.ticker .ticker-column .ticker-row{
+  display:block;padding:10px 16px;
+}
+.ticker .ticker-column .ticker-quote-area{
+  display:grid;height:100%;min-width:0;
+  grid-template-columns:minmax(0,1fr) minmax(0,22%) minmax(0,22%);
+  grid-template-rows:minmax(0,1fr);
+  align-items:center;gap:10px;
+}
+.ticker .ticker-identity{display:flex;flex-direction:column;gap:10px;min-width:0;text-align:right}
+.ticker .ticker-column .ticker-name{
+  font-size:clamp(18px,min(4.7cqw,23cqh),32px)!important;
+  white-space:normal;line-height:1.12;overflow-wrap:anywhere;
+}
+.ticker .ticker-column .ticker-values{align-items:flex-end;gap:3px}
+.ticker .ticker-column .ticker-price{font-size:clamp(24px,7cqw,48px);line-height:1}
+.ticker .ticker-column .ticker-change{
+  display:block;font-size:clamp(15px,4.2cqw,30px)!important;
+  line-height:1.35;white-space:pre-line;text-align:right;
+}
+.ticker .ticker-column .ticker-chart{display:block;min-width:0;min-height:0;height:100%;align-self:stretch}
+.ticker .ticker-column .ticker-chart svg{height:100%}
+.ticker .ticker-column .ticker-group-head{color:#9be6ff;font-weight:700;font-size:var(--ticker-heading-size,24px);letter-spacing:.025em;text-transform:uppercase;height:auto;min-height:40px;line-height:1.12;padding:8px 18px;white-space:nowrap;justify-content:center;text-align:center;background:linear-gradient(135deg,#16354a,#102735);border:1px solid #388aaf;border-radius:9px;margin-bottom:12px;box-shadow:inset 0 1px 0 #b8edff14,0 0 18px #45bfff12}
+.ticker[data-columns="3"] .ticker-column .ticker-quote-area{grid-template-columns:minmax(0,1fr) minmax(0,26%) minmax(0,28%)}
+.ticker .ticker-column .ticker-group-head{padding-inline:clamp(28px,2vw,44px)}
+.ticker[data-columns="3"] .ticker-column .ticker-price{font-size:clamp(18px,7cqw,48px)}
+.ticker[data-columns="3"] .ticker-column .ticker-change{font-size:clamp(12px,4.2cqw,30px)!important}
+@media(max-width:1100px){
+  .ticker .ticker-column .ticker-quote-area{gap:8px}
+  .ticker .ticker-column .ticker-row{padding:10px 12px}
+}
+@media(max-width:650px){
+  .overview{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-auto-rows:180px;overflow-y:auto}
+  .overview .quote-card{padding:8px;column-gap:5px;row-gap:5px}
+  .overview .quote-name{font-size:16px!important}
+  .overview .quote-price{font-size:26px!important}
+  .overview .quote-values .quote-change{font-size:17px!important}
+  .ticker .ticker-column .ticker-quote-area{gap:6px;grid-template-columns:minmax(0,1fr) minmax(0,25%) minmax(0,28%)}
+  .ticker .ticker-column .ticker-name{font-size:20px!important}
+  .ticker .ticker-column .ticker-price{font-size:30px}
+  .ticker .ticker-column .ticker-change{font-size:17px!important}
+}

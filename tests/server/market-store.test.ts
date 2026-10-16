@@ -5,6 +5,7 @@ import { createMarketStore } from '../../src/server/market-store.js';
 import { createMarket, applyCommand, advanceMarket } from '../../src/domain/market-v2.js';
 import { makeConfiguration, context } from '../v2-fixtures.js';
 import { midpointRng } from '../fixtures.js';
+import {combineHistory} from '../../src/domain/startup-history.js';
 async function path() { const base=join(process.cwd(),'.superpowers/sdd/2026-10-08-stock-market-exchange-events/tests'); await mkdir(base,{recursive:true}); return join(await mkdtemp(join(base,'store-')),'market.json'); }
 const legacyText = () => readFile('tests/fixtures/schema-v1.json','utf8');
 it('reload_preserves_schedule_history_and_simulation', async () => {
@@ -19,6 +20,12 @@ it('migration_keeps_prices_previews_and_override', async () => {
   const state=await createMarketStore(p,{now:()=>1000,rng:midpointRng}).load();
   expect(state).toMatchObject({schemaVersion:2,prices:{bier:200},previews:{normal:{bier:220},crash:{bier:180},recovery:null},overrides:{normal:{bier:250},crash:{bier:140}},deadline:1_800_000});
   expect(state!.schedule.pending).toHaveLength(2); expect(state!.schedule.startedAt).toBe(1000);
+});
+it('legacy_startup_simulation_is_anchored_before_the_preserved_real_history',async()=>{
+  const p=await path();await writeFile(p,await legacyText());const state=(await createMarketStore(p,{now:()=>100000000,rng:midpointRng}).load())!;const combined=combineHistory(state.historyByDrink.bier,state.startupHistoryByDrink!.bier,14);expect(combined.points).toHaveLength(15);expect(combined.simulatedCount).toBe(14);
+});
+it('legacy_crash_preview_does_not_receive_an_unrelated_new_percentage',async()=>{
+  const p=await path();await writeFile(p,await legacyText());let state=(await createMarketStore(p,{now:()=>1000,rng:()=>.999}).load())!;expect(state.nextCrashPercent).toBeUndefined();state=applyCommand(state,{type:'crash'},context(2000),midpointRng);expect(state.activeCrashPercent).toBeUndefined();state=advanceMarket(state,context(12000),midpointRng);expect(state.prices.bier).toBe(140);expect(state.previews.recovery!.bier).toBe(150);
 });
 it('migration_preserves_old_deadline_until_publication', async () => {
   const p=await path(); await writeFile(p,await legacyText()); const state=(await createMarketStore(p,{now:()=>1000,rng:midpointRng}).load())!;
@@ -57,6 +64,7 @@ it('interior_null_history_is_rejected_without_overwriting_original',async()=>{
 });
 it('historical_schema_two_fixed_price_with_specials_loads_unchanged',async()=>{
   const p=await path(),state=createMarket(makeConfiguration(),0,midpointRng);
+  delete state.startupHistoryByDrink;
   state.drinks[0].minCents=200;state.drinks[0].maxCents=200;state.previews.crash!.bier=200;
   const original=JSON.stringify(state);await writeFile(p,original);const loaded=await createMarketStore(p).load();
   expect(loaded!.specials).toHaveLength(16);expect(loaded!.drinks[0]).toMatchObject({minCents:200,maxCents:200});expect(await readFile(p,'utf8')).toBe(original);

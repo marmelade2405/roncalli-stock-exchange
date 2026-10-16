@@ -1,0 +1,25 @@
+import {test,expect} from './fixtures.js';
+import type {AdminState,Snapshot} from '../../src/domain/model.js';
+test('five_hours_and_simulation_steps_never_start_breaking_news',async({page,request,testApp})=>{
+  await testApp.barList();await page.goto('/display');await expect(page.getByTestId('display-price-bier')).toContainText('1,80');
+  await testApp.externalCommand({type:'simulation',enabled:true,speed:120});await testApp.externalCommand({type:'start'});
+  let wall=0;for(let i=0;i<15;i++){await testApp.step();await expect(page.getByTestId('breaking-news')).toBeHidden();wall+=10000;await testApp.advanceTo(wall);await expect(page.getByTestId('breaking-news')).toBeHidden();}
+  const packet=await(await request.get(testApp.baseURL+'/api/admin/state')).json() as Snapshot<AdminState>;
+  expect(packet.clock.marketNow).toBe(18000000);expect(packet.state.schedule.pending).toHaveLength(38);expect(packet.state.schedule.done).toHaveLength(0);expect(Object.values(packet.state.historyByDrink).flat().every(p=>p.kind!=='special')).toBe(true);
+});
+test('admin_click_sets_bene_fixed_price_on_both_displays_even_from_lower_price',async({page,context,testApp})=>{
+  await testApp.barList();await page.goto('/admin');await page.getByLabel('Passwort').fill(testApp.password);await page.getByRole('button',{name:'Anmelden',exact:true}).click();await expect(page.getByTestId('special-cadence')).toContainText('Keine automatischen Meldungen');await expect(page.getByTestId('special-bier-down-preview')).toContainText('1,50');
+  const screens=[await context.newPage(),await context.newPage()];for(const screen of screens)await screen.goto('/display');
+  await testApp.externalCommand({type:'correct',drinkId:'bier',value:110});await page.getByRole('button',{name:'Markt starten',exact:true}).click();await page.getByRole('tab',{name:'Breaking News',exact:true}).click();await page.getByTestId('special-bier-down-trigger').click();
+  await testApp.advanceTo(5000);for(const screen of screens){await expect(screen.locator('.news-headline')).toContainText('Bene');await expect(screen.getByTestId('breaking-news')).toHaveAttribute('data-direction','up');await expect(screen.locator('[data-price]:visible')).toHaveCount(0);}
+  await testApp.advanceTo(20000);for(const screen of screens){await expect(screen.getByTestId('display-price-bier')).toContainText('1,50');await expect(screen.getByTestId('news-tape')).toHaveAttribute('data-direction','up');await expect(screen.locator('#overview [data-special-direction="up"]')).toHaveCount(1);}
+  await expect(page.getByTestId('special-bier-down-status')).toContainText('Erledigt');await expect(page.getByTestId('special-bier-down-trigger')).toHaveCount(0);await testApp.restart();for(const screen of screens)await expect(screen.getByTestId('display-price-bier')).toContainText('1,50');
+  await page.getByRole('tab',{name:'Breaking News',exact:true}).click();await expect(page.getByTestId('special-wein-up-preview')).toContainText('5,60');await page.getByTestId('special-wein-up-trigger').click();await testApp.advanceTo(41000);for(const screen of screens)await expect(screen.getByTestId('display-price-wein')).toContainText('5,60');
+  await page.getByRole('tab',{name:'Breaking News',exact:true}).click();await expect(page.getByTestId('special-berentzen-up-preview')).toContainText('2,80');await page.getByTestId('special-berentzen-up-trigger').click();await testApp.advanceTo(61000);for(const screen of screens)await expect(screen.getByTestId('display-price-berentzen')).toContainText('2,80');
+  await page.getByRole('tab',{name:'Breaking News',exact:true}).click();await page.getByTestId('special-pfeffi-down-trigger').click();await testApp.advanceTo(81000);for(const screen of screens)await expect(screen.getByTestId('display-price-pfeffi')).toContainText('0,60');
+});
+test('fixed_special_price_can_be_edited_or_removed_and_invalid_steps_are_rejected',async({page,testApp})=>{
+  await testApp.barList();await page.goto('/admin');await page.getByLabel('Passwort').fill(testApp.password);await page.getByRole('button',{name:'Anmelden',exact:true}).click();await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();const target=page.getByTestId('news-bier-down-target');await target.locator('xpath=ancestor::details[1]').locator('summary').click();await expect(target).toHaveValue('1,50');
+  await target.fill('1,55');await page.getByTestId('settings-save').click();await expect(page.locator('#settings-error')).not.toBeEmpty();await expect(page.getByTestId('special-bier-down-preview')).toContainText('1,50');
+  await target.fill('1,60');await page.getByTestId('settings-save').click();await expect(page.getByTestId('special-bier-down-preview')).toContainText('1,60');await page.reload();await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await target.locator('xpath=ancestor::details[1]').locator('summary').click();await expect(target).toHaveValue('1,60');await target.fill('');await page.getByTestId('settings-save').click();await expect(page.getByTestId('special-bier-down-preview')).toContainText('1,40');
+});

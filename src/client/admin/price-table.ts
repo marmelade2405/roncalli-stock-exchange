@@ -50,7 +50,8 @@ export function createPriceTable(root: HTMLElement, average: HTMLElement, scope:
         if (effective === undefined) complete = false;
         else if(state.prices[drink.id]>0){sum += (effective - state.prices[drink.id]) / state.prices[drink.id] * 100;count++;}
       }
-      average.textContent = complete ? count?`Ø ${sum >= 0 ? '+' : '−'}${Math.abs(sum / count).toFixed(1).replace('.', ',')} %`:'Feste Preise' : 'Vorschau ausgesetzt';
+      const label=scope==='normal'?'Ø nächste Preisänderung: ':'Ø Crash-Preisänderung: ';
+      average.textContent = label+(complete ? count?`${sum >= 0 ? '+' : '−'}${Math.abs(sum / count).toFixed(1).replace('.', ',')} %`:'Feste Preise' : 'Vorschau ausgesetzt');
     },
     baseRevision(id: string) { return rows.get(id)?.base ?? state!.revision; },
     ownRevision(from: number, to: number) { for (const row of rows.values()){row.instant?.ownRevision(from,to);if (row.draft !== null && row.base === from) row.base = to;} },

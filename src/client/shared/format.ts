@@ -13,7 +13,7 @@ export function formatEuro(value: Cents): string { return money.format(value / 1
 export function formatChange(current: Cents, previous: Cents | null): { euro: string; percent: string; direction: 'up' | 'down' | 'flat' } {
   if (previous === null) return { euro: '—', percent: '—', direction: 'flat' };
   const difference = current - previous; const sign = difference > 0 ? '+' : difference < 0 ? '−' : '±';
-  return { euro: sign + formatEuro(Math.abs(difference)), percent: previous === 0 ? '—' : `${sign}${percent.format(Math.abs(difference / previous * 100))} %`, direction: difference > 0 ? 'up' : difference < 0 ? 'down' : 'flat' };
+  return { euro: sign + formatEuro(Math.abs(difference)), percent: difference===0?`${sign}${percent.format(0)} %`:previous === 0 ? '—' : `${sign}${percent.format(Math.abs(difference / previous * 100))} %`, direction: difference > 0 ? 'up' : difference < 0 ? 'down' : 'flat' };
 }
 export function inputEuro(value: Cents): string { return (value / 100).toFixed(2).replace('.', ','); }
 export function formatCountdown(remaining: number | null): string {

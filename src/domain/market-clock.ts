@@ -11,7 +11,7 @@ export function projectClock(c: MarketClockState, now: number, ceilingAt: number
 }
 export function rebaseClock(c: MarketClockState, wall: number, market: number, patch: Partial<Pick<MarketClockState,'mode'|'speed'|'paused'|'rate'>>): MarketClockState {
   const next = {...c,...patch,wallAnchor:timestamp(wall),marketAnchor:timestamp(market),generation:c.generation+1};
-  if (!isSimulationSpeed(next.speed) || !(next.rate===0||isSimulationSpeed(next.rate))) throw new DomainError('INVALID_INPUT','Simulationsgeschwindigkeit: ganze Werte von 1× bis 120× wählen.');
+  if (!isSimulationSpeed(next.speed) || !(next.rate===0||isSimulationSpeed(next.rate))) throw new DomainError('INVALID_INPUT','Simulationsgeschwindigkeit: ganze Werte von 1× bis 500× wählen.');
   if (next.mode === 'live') { next.speed=1; next.paused=false; next.rate=1; }
   else if (next.paused) next.rate=0;
   else if (patch.rate === undefined && (patch.speed !== undefined || patch.mode !== undefined || (patch.paused === false && c.paused))) next.rate=next.speed;

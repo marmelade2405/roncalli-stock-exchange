@@ -39,6 +39,10 @@ it('public_http_never_exposes_previews', async () => {
   expect(snapshot.state).not.toHaveProperty('previews');
   expect(snapshot.state).not.toHaveProperty('overrides');
 });
+it('session_capability_and_skip_commands_do_not_grant_guest_market_control',async()=>{
+  const app=await openApp();expect(await(await fetch(`${app.base}/api/admin/session`)).json()).toEqual({authenticated:false});const cookie=await app.cookie();expect(await(await fetch(`${app.base}/api/admin/session`,{headers:{Cookie:cookie}})).json()).toEqual({authenticated:true});
+  expect((await app.command({type:'skip-transition'},0,'')).status).toBe(401);expect((await app.command({type:'ticker-speed',rowMs:1000},0,'')).status).toBe(401);expect((await app.command({type:'skip-transition'},0,cookie)).status).toBe(409);expect((await app.command({type:'ticker-speed',rowMs:0},0,cookie)).status).toBe(400);
+});
 it('static_path_cannot_escape_client_directory', async () => {
   const app = await openApp();
   const response = await fetch(`${app.base}/..%2f..%2fpackage.json`);

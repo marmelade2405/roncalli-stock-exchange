@@ -1,9 +1,9 @@
 import { test, expect, signIn } from './fixtures.js';
 test('evening_flow_preserves_previews_and_resets_timer', async ({ page, context, testApp }) => {
   await signIn(page, testApp);
-  await page.getByTestId('normal-bier-input').fill('2,50'); await page.getByTestId('normal-bier-input').blur();
+  await page.getByRole('tab',{name:'Kurse',exact:true}).click();await page.getByTestId('normal-bier-input').fill('2,50'); await page.getByTestId('normal-bier-input').blur();
   await expect(page.getByTestId('normal-bier-effective')).toContainText('2,50');
-  await page.getByTestId('crash-bier-input').fill('1,40'); await page.getByTestId('crash-bier-input').blur();
+  await page.getByRole('tab',{name:'Crash',exact:true}).click();await page.getByTestId('crash-bier-input').fill('1,40'); await page.getByTestId('crash-bier-input').blur();
   await expect(page.getByTestId('crash-bier-effective')).toContainText('1,40');
   const first = await context.newPage(); await testApp.attachPage(first); let blocked = false;
   await first.routeWebSocket('**/ws/public', socket => { const server = socket.connectToServer(); server.onMessage(message => { if (!blocked) socket.send(message); }); });

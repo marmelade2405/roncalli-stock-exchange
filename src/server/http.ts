@@ -27,13 +27,15 @@ function parseCommand(value: Record<string, unknown>): CommandRequest {
   const command = value.command;
   const invalid = () => { throw new HttpError(400, 'INVALID_INPUT', 'Der Bedienbefehl ist ungültig.'); };
   switch (command.type) {
-    case 'start': case 'crash': case 'cancel-crash': case 'step': break;
+    case 'start': case 'crash': case 'cancel-crash': case 'step':case 'skip-transition': break;
+    case 'ticker-speed':if(!Number.isSafeInteger(command.rowMs))invalid();break;
+    case 'chart-mode':if(!['line','bars','bars-gap'].includes(String(command.mode)))invalid();break;
+    case 'ticker-columns':if(command.columns!==2&&command.columns!==3)invalid();break;
     case 'view': if (command.mode !== 'overview' && command.mode !== 'ticker') invalid(); break;
     case 'override': if (!['normal', 'crash'].includes(String(command.scope)) || typeof command.drinkId !== 'string' || (command.value !== null && (typeof command.value !== 'number' || !Number.isSafeInteger(command.value)))) invalid(); break;
     case 'configure': if (!Array.isArray(command.drinks) || (command.parameters !== undefined && !record(command.parameters)) || (command.specials !== undefined && !Array.isArray(command.specials)) || (command.specialOrder !== undefined && !Array.isArray(command.specialOrder))) invalid(); break;
     case 'correct': if (typeof command.drinkId !== 'string' || !Number.isSafeInteger(command.value)) invalid(); break;
     case 'special': if (typeof command.specialId !== 'string') invalid(); break;
-    case 'reorder-specials': if (!Array.isArray(command.ids) || command.ids.some(id=>typeof id !== 'string')) invalid(); break;
     case 'reset': if (command.kind !== 'evening' && command.kind !== 'factory') invalid(); break;
     case 'simulation': if (typeof command.enabled !== 'boolean' || (command.speed !== undefined && !isSimulationSpeed(command.speed))) invalid(); break;
     case 'pause': if (typeof command.paused !== 'boolean') invalid(); break;
@@ -61,6 +63,7 @@ export function createApplication(config: ServerConfig, controller: MarketContro
     if (method === 'GET' && path === '/health') { json(response, 200, { status: 'ok' }); return; }
     if (method === 'GET' && path === '/api/time') { json(response, 200, controller.timeSnapshot()); return; }
     if (method === 'GET' && path === '/api/state') { json(response, 200, controller.publicSnapshot()); return; }
+    if(method==='GET'&&path==='/api/admin/session'){json(response,200,{authenticated:auth.isAdmin(request.headers.cookie)});return;}
     if (method === 'GET' && path === '/api/admin/state') { requireAdmin(request); json(response, 200, controller.adminSnapshot()); return; }
     if (method === 'POST' && path === '/api/login') {
       requireOrigin(request); const input = await body(request);
@@ -78,7 +81,7 @@ export function createApplication(config: ServerConfig, controller: MarketContro
     }
     if (method !== 'GET' || path.startsWith('/api/') || path.startsWith('/ws/') || path.startsWith('/__test/')) throw new HttpError(404, 'NOT_FOUND', 'Diese Seite ist nicht vorhanden.');
     if (path === '/') { response.writeHead(302, { Location: '/display' }); response.end(); return; }
-    const document = path === '/admin' || path === '/admin/' ? '/admin/index.html' : path === '/display' || path === '/display/' ? '/display/index.html' : path;
+    const document = path === '/admin' || path === '/admin/' ? '/admin/index.html' : path === '/display' || path === '/display/' ? '/display/index.html' : path==='/bar-display'||path==='/bar-display/'?'/bar-display/index.html':path;
     const root = resolve(config.clientDir); const target = resolve(root, `.${document}`);
     if (!target.startsWith(root + sep)) throw new HttpError(403, 'FORBIDDEN', 'Zugriff auf diese Datei ist nicht erlaubt.');
     try {

@@ -6,11 +6,13 @@ import { createApplication } from '../../src/server/http.js';
 import { createMarket } from '../../src/domain/market.js';
 import { LEGACY_DRINKS as DEFAULT_DRINKS } from '../fixtures.js';
 import {DEFAULT_DRINKS as BAR_DRINKS} from '../../src/domain/defaults.js';
+import {createDefaultConfiguration} from '../../src/domain/configuration.js';
+import {createSpecialCatalog} from '../../src/domain/news-catalog.js';
 const repository = createRepository(resolve('.superpowers/sdd/2026-10-08-stock-market-exchange-events/e2e/market.json'));
 let now = 0; let controller!: MarketController; let application: ReturnType<typeof createApplication> | null = null;
 async function start(reset: boolean,bar=false) {
   if (application) await application.close();
-  if (reset) { now = 0; await repository.save(createMarket(bar?BAR_DRINKS:DEFAULT_DRINKS, now, () => .5)); }
+  if (reset) { now = 0;const config=createDefaultConfiguration(bar?BAR_DRINKS:DEFAULT_DRINKS,()=>.5);if(!bar){config.parameters.newsMs=10000;config.specials=createSpecialCatalog(config.drinks);}await repository.save(createMarket(config, now, () => .5)); }
   controller = await createController({load:()=>repository.load(),save:async state=>{try{await repository.save(state);}catch(error){console.error('Test-store:',(error as Error).message);throw error;}}}, { now: () => now, rng: () => .5, drinks: DEFAULT_DRINKS });
   application = createApplication({ host: '127.0.0.1', port: 4173, stateFile: 'unused', adminPassword: 'test-password', sessionSecret: 'test-only-session-secret'.repeat(3), publicOrigin: null, secureCookies: false, clientDir: resolve('dist/client') }, controller, () => now);
   await new Promise<void>((done, reject) => { application!.server.once('error', reject); application!.server.listen(4173, '127.0.0.1', done); });

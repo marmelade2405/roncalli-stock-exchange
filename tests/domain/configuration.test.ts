@@ -6,15 +6,15 @@ import { makeDrink, midpointRng } from '../fixtures.js';
 it('default_parameters_are_exact', () => {
   const config = createDefaultConfiguration(undefined, midpointRng);
   expect(() => validateConfiguration(config)).not.toThrow();
-  expect(config.parameters).toMatchObject({ normalMs: 1_200_000, crashMs: 300_000, transitionMs: 10_000, newsMs: 10_000, eveningMs: 18_000_000, minSpecialGapMs: 120_000, crashTrendPercent: -10, recoveryTrendPercent: 10, crashAmplitudeFactor: 2, historyChanges: 10, tickerRowMs: 6000 });
+  expect(config.parameters).toMatchObject({ normalMs: 1_200_000, crashMs: 300_000, transitionMs: 10_000, newsMs: 20_000,newsIntroMs:5000, eveningMs: 18_000_000, minSpecialGapMs: 120_000, crashTrendPercent: -10, recoveryTrendPercent: 10, crashAmplitudeFactor: 2, historyChanges: 19, tickerRowMs: 3000 });
   config.parameters.normalMs = 60_000;
   expect(createDefaultConfiguration(undefined, midpointRng).parameters.normalMs).toBe(1_200_000);
 });
 it('catalog_has_two_opposite_specials_per_drink', () => {
   const catalog = createSpecialCatalog(DEFAULT_DRINKS);
-  expect(catalog).toHaveLength(26);
-  expect(new Set(catalog.map(x => x.id)).size).toBe(26);
-  for (const drink of DEFAULT_DRINKS.filter(d=>d.minCents!==d.maxCents)) expect(catalog.filter(x => x.drinkId === drink.id).map(x => x.percent).sort((a,b) => a-b)).toEqual([-40, 40]);
+  expect(catalog).toHaveLength(38);
+  expect(new Set(catalog.map(x => x.id)).size).toBe(38);
+  for (const drink of DEFAULT_DRINKS.filter(d=>d.minCents!==d.maxCents)) expect(catalog.filter(x => x.drinkId === drink.id).map(x => x.direction).sort()).toEqual(['down','up']);expect(catalog.every(s=>s.percent===undefined)).toBe(true);
   expect(createDefaultConfiguration([makeDrink({ id: 'limonade', name: 'Limonade' })], midpointRng).specials.map(x => x.drinkId)).toEqual(['limonade', 'limonade']);
 });
 it('invalid_parameters_and_catalog_are_rejected', () => {

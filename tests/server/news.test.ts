@@ -26,10 +26,11 @@ it('concurrent_direct_special_runs_once', async () => {
   const responses=await Promise.all([app.command({type:'special',specialId:'bier-down'},1,cookie),app.command({type:'special',specialId:'bier-down'},1,cookie)]);
   expect(responses.map(x=>x.status).sort()).toEqual([200,409]);
 });
-it('concurrent_reorder_cannot_drop_slot', async () => {
+it('removed_reorder_commands_cannot_change_pending_news', async () => {
   const app=await openApp(); const cookie=await app.cookie();
+  const before=app.controller.adminSnapshot().state.schedule;
   const responses=await Promise.all([app.command({type:'reorder-specials',ids:['bier-up','bier-down']},0,cookie),app.command({type:'reorder-specials',ids:['bier-down','bier-up']},0,cookie)]);
-  expect(responses.map(x=>x.status).sort()).toEqual([200,409]);
+  expect(responses.map(x=>x.status)).toEqual([400,400]);expect(app.controller.adminSnapshot().state.schedule).toEqual(before);
 });
 it('heartbeat_contains_only_public_projection', async () => {
   const app=await openApp(); const socket=new WebSocket(app.base.replace('http','ws')+'/ws/public');

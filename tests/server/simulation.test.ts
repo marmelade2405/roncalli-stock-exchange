@@ -4,6 +4,8 @@ import { createController } from '../../src/server/controller.js';
 import { makeDrink, midpointRng } from '../fixtures.js';
 import type { MarketState } from '../../src/domain/model.js';
 import {validateStoredMarket} from '../../src/server/market-store.js';
+import {createMarket} from '../../src/domain/market-v2.js';
+import {makeConfiguration} from '../v2-fixtures.js';
 it('simulation_tempo_changes_live_paused_crash_and_transition_without_time_jump',async()=>{
   const app=await openApp();const cookie=await app.cookie();
   await app.command({type:'simulation',enabled:true,speed:60},0,cookie);await app.command({type:'start'},1,cookie);
@@ -16,19 +18,20 @@ it('simulation_tempo_changes_live_paused_crash_and_transition_without_time_jump'
   expect((await app.command({type:'simulation',enabled:true,speed:43},snapshot.state.revision,cookie)).status).toBe(200);snapshot=app.controller.adminSnapshot();expect(snapshot.clock).toMatchObject({rate:1,speed:43});expect(snapshot.state.prices).toEqual(prices);
   app.time(12000);await app.controller.tick();snapshot=app.controller.adminSnapshot();expect(snapshot.state.phase).toBe('crash');expect(snapshot.clock.rate).toBe(43);
   expect((await app.command({type:'simulation',enabled:true,speed:19},snapshot.state.revision,cookie)).status).toBe(200);expect(app.controller.adminSnapshot().clock.rate).toBe(19);
-  for(const speed of [0,121,1.5])expect((await app.command({type:'simulation',enabled:true,speed},app.controller.adminSnapshot().state.revision,cookie)).status).toBe(400);
+  for(const speed of [0,501,1.5])expect((await app.command({type:'simulation',enabled:true,speed},app.controller.adminSnapshot().state.revision,cookie)).status).toBe(400);
 });
-it('exact_fit_special_boundary_keeps_simulation_durable_and_resettable',async()=>{
-  let saved:MarketState|null=null,wall=0;
+it('legacy_timed_slots_remain_durable_but_publish_only_on_admin_command',async()=>{
+  let saved:MarketState|null=createMarket(makeConfiguration([makeDrink()]),0,()=>5/14),wall=0;
+  saved.schedule.pending.forEach((slot,i)=>slot.offsetMs=3460000+i*1000000);
   const repository={load:async()=>saved,save:async(state:MarketState)=>{validateStoredMarket(state);saved=structuredClone(state);}};
   const controller=await createController(repository,{now:()=>wall,rng:()=>5/14,drinks:[makeDrink()]});
-  expect(controller.adminSnapshot().state.schedule.pending[0].offsetMs).toBe(3460000);
   await controller.dispatch({type:'simulation',enabled:true,speed:120},0);await controller.dispatch({type:'start'},1);
-  for(wall=250;wall<=49000;wall+=250)await controller.tick();
-  wall=49000;const transition=controller.adminSnapshot();expect(transition.state.phase).toBe('transition');expect(transition.state.nextKind).toBe('special');expect(transition.clock).toMatchObject({marketNow:3460000,rate:1});
-  wall=58999;await controller.tick();expect(controller.adminSnapshot().state.phase).toBe('transition');
-  wall=59000;await controller.tick();const published=controller.adminSnapshot();expect(published.state.schedule.done).toHaveLength(1);expect(published.clock.rate).toBe(120);
-  const reset=await controller.dispatch({type:'reset',kind:'evening'},published.state.revision);expect(reset.state.phase).toBe('ready');expect(reset.clock.mode).toBe('live');
+  wall=2000;await controller.tick();let snapshot=controller.adminSnapshot();expect(snapshot.state.phase).toBe('normal');expect(snapshot.state.schedule.done).toHaveLength(0);
+  snapshot=await controller.dispatch({type:'step'},snapshot.state.revision);expect(snapshot.state.nextKind).toBe('normal');expect(snapshot.clock.marketNow).toBe(1190000);
+  wall=12000;await controller.tick();snapshot=controller.adminSnapshot();expect(snapshot.state.phase).toBe('normal');expect(snapshot.state.schedule.done).toHaveLength(0);
+  snapshot=await controller.dispatch({type:'special',specialId:'bier-down'},snapshot.state.revision);expect(snapshot.state.nextKind).toBe('special');
+  wall=22000;await controller.tick();snapshot=controller.adminSnapshot();expect(snapshot.state.schedule.done).toHaveLength(1);expect(snapshot.clock.rate).toBe(120);
+  const reset=await controller.dispatch({type:'reset',kind:'evening'},snapshot.state.revision);expect(reset.state.phase).toBe('ready');expect(reset.clock.mode).toBe('live');
 });
 it('simulation_boundary_between_ticks_shows_full_transition', async () => {
   const app=await openApp(); const cookie=await app.cookie();

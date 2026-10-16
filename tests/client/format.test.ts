@@ -11,4 +11,5 @@ it('formats_real_changes_and_handles_zero_baseline', () => {
   expect(formatChange(180, 200).euro).toContain('0,20');
   expect(formatChange(200, 0).percent).toBe('—');
   expect(formatChange(200, null).euro).toBe('—');
+  expect(formatChange(0,0).percent).toContain('0,0 %');
 });
