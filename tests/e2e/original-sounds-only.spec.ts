@@ -1,0 +1,7 @@
+import {test,expect} from './fixtures.js';
+test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.setItem('market-sounds','off'));});
+test('activation_normal_rounds_recovery_and_publication_add_no_synthetic_sounds',async({page,testApp})=>{
+ await page.addInitScript(()=>{Object.assign(window,{extraTones:0});const start=OscillatorNode.prototype.start;OscillatorNode.prototype.start=function(...args){(window as unknown as {extraTones:number}).extraTones++;return start.apply(this,args);};});
+ await testApp.barList();await page.goto('/admin');await page.getByLabel('Passwort').fill(testApp.password);await page.getByRole('button',{name:'Anmelden',exact:true}).click();await page.getByRole('tab',{name:'Steuerung',exact:true}).click();await page.getByTestId('sound-toggle').click();await expect(page.getByTestId('sound-toggle')).toHaveAttribute('aria-pressed','true');expect(await page.evaluate(()=>(window as unknown as {extraTones:number}).extraTones)).toBe(0);
+ await testApp.externalCommand({type:'simulation',enabled:true});await testApp.externalCommand({type:'start'});await testApp.step();await testApp.externalCommand({type:'skip-transition'});await testApp.advanceTo(2000);await testApp.externalCommand({type:'crash'});await testApp.externalCommand({type:'skip-transition'});await testApp.externalCommand({type:'cancel-crash'});await testApp.externalCommand({type:'skip-transition'});await testApp.advanceTo(3000);expect(await page.evaluate(()=>(window as unknown as {extraTones:number}).extraTones)).toBe(0);
+});

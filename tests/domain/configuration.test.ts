@@ -6,7 +6,7 @@ import { makeDrink, midpointRng } from '../fixtures.js';
 it('default_parameters_are_exact', () => {
   const config = createDefaultConfiguration(undefined, midpointRng);
   expect(() => validateConfiguration(config)).not.toThrow();
-  expect(config.parameters).toMatchObject({ normalMs: 1_200_000, crashMs: 300_000, transitionMs: 10_000, newsMs: 20_000,newsIntroMs:5000, eveningMs: 18_000_000, minSpecialGapMs: 120_000, crashTrendPercent: -10, recoveryTrendPercent: 10, crashAmplitudeFactor: 2, historyChanges: 19, tickerRowMs: 3000 });
+  expect(config.parameters).toMatchObject({ normalMs: 1_200_000, crashMs: 300_000, transitionMs: 10_000, newsMs: 25_000,newsIntroMs:10000, eveningMs: 18_000_000, minSpecialGapMs: 120_000, crashTrendPercent: -10, recoveryTrendPercent: 10, crashAmplitudeFactor: 2, historyChanges: 19, tickerRowMs: 3000 });
   config.parameters.normalMs = 60_000;
   expect(createDefaultConfiguration(undefined, midpointRng).parameters.normalMs).toBe(1_200_000);
 });

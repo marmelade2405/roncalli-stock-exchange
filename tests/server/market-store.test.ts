@@ -18,6 +18,7 @@ it('arbitrary_simulation_speed_survives_storage',async()=>{const p=await path();
 it('migration_keeps_prices_previews_and_override', async () => {
   const p=await path(); const text=await legacyText(); await writeFile(p,text);
   const state=await createMarketStore(p,{now:()=>1000,rng:midpointRng}).load();
+  expect(state!.parameters.marketVolatilityPercent).toBeUndefined();
   expect(state).toMatchObject({schemaVersion:2,prices:{bier:200},previews:{normal:{bier:220},crash:{bier:180},recovery:null},overrides:{normal:{bier:250},crash:{bier:140}},deadline:1_800_000});
   expect(state!.schedule.pending).toHaveLength(2); expect(state!.schedule.startedAt).toBe(1000);
 });

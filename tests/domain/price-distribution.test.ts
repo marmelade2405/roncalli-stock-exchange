@@ -1,7 +1,16 @@
 import {expect,it} from 'vitest';
 import {simulatePriceDistribution} from '../../src/domain/price-distribution.js';
 import {DEFAULT_DRINKS} from '../../src/domain/defaults.js';
-const beer={...DEFAULT_DRINKS.find(d=>d.id==='bier')!,amplitudeCents:50,reversionPercent:75};
+const beer={...DEFAULT_DRINKS.find(d=>d.id==='bier')!,startCents:180,averageCents:180,minCents:110,maxCents:500,amplitudeCents:50,reversionPercent:75};
+it('live_global_zero_volatility_preserves_average_reversion_without_random_motion',()=>{
+  const distribution=simulatePriceDistribution({...beer,startCents:400,averageCents:250,reversionPercent:100},0);
+  expect(distribution.meanCents).toBe(250);expect(distribution.bins.find(b=>b.fromCents===250)?.probability).toBe(1);
+});
+it('global_volatility_changes_distribution_and_validates_the_same_live_range',()=>{
+  expect(simulatePriceDistribution(beer,2).bins).not.toEqual(simulatePriceDistribution(beer,1).bins);
+  for(const factor of[-1,3.05,.01,NaN,Infinity])expect(()=>simulatePriceDistribution(beer,factor)).toThrow();
+  expect(simulatePriceDistribution(DEFAULT_DRINKS.find(d=>d.id==='wasser')!,3).bins).toEqual([{fromCents:0,toCents:0,probability:1}]);
+});
 it('normal_beer_distribution_matches_mean_reversion_and_balanced_spikes',()=>{
   const distribution=simulatePriceDistribution(beer);
   expect(distribution.meanCents).toBeCloseTo(180,0);

@@ -50,11 +50,11 @@ describe('Marktablauf', () => {
   });
   it('preview_is_not_redrawn_on_publication', () => {
     let state = createMarket([makeDrink()], 0, () => .8);
-    expect(state.previews.normal).toEqual({ bier: 220 });
+    expect(state.previews.normal).toEqual({ bier: 230 });
     state = applyCommand(state, { type: 'start' }, 0, midpointRng);
     state = advanceMarket(state, 1_200_000, () => 0);
-    expect(state.prices).toEqual({ bier: 220 });
-    expect(state.previews.normal).toEqual({ bier: 190 });
+    expect(state.prices).toEqual({ bier: 230 });
+    expect(state.previews.normal).toEqual({ bier: 180 });
   });
   it('locks_exactly_at_ten_seconds', () => {
     const state = started();

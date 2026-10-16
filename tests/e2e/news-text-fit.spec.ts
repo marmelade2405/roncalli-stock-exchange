@@ -1,0 +1,5 @@
+import {test,expect} from './fixtures.js';
+test('long_news_fits_short_screen_without_frame_to_frame_resizing',async({page,testApp})=>{
+ await testApp.barList();await page.setViewportSize({width:1280,height:720});await page.goto('/display');await testApp.externalCommand({type:'start'});await testApp.externalCommand({type:'special',specialId:'pfeffi-down'});await testApp.advanceTo(5000);
+ const message=page.locator('.news-message');await expect(message).toBeVisible();const initial=await message.boundingBox(),zoom=await message.evaluate(e=>e.style.zoom);await testApp.advanceTo(5100);expect(await message.evaluate(e=>e.style.zoom)).toBe(zoom);const next=await message.boundingBox(),container=await page.getByTestId('breaking-news').boundingBox();expect(next!.y).toBeCloseTo(initial!.y,0);expect(next!.y).toBeGreaterThanOrEqual(container!.y);expect(next!.y+next!.height).toBeLessThanOrEqual(container!.y+container!.height);await page.screenshot({path:'.artifacts/previews/news-stable-short-screen.png'});
+});

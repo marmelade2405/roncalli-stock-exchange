@@ -80,7 +80,7 @@ it('reset_keeps_or_restores_configuration', () => {
   const reset = command(s,{type:'reset',kind:'evening'},1000);
   expect(reset.phase).toBe('ready'); expect(reset.parameters.normalMs).toBe(600_000); expect(reset.prices.bier).toBe(220); expect(reset.viewMode).toBe('ticker'); expect(reset.specials[0].headline).toBe('Eigene Meldung');
   const factory = command(reset,{type:'reset',kind:'factory'},2000);
-  expect(factory.parameters.normalMs).toBe(1_200_000); expect(factory.prices.bier).toBe(180); expect(factory.viewMode).toBe('ticker');
+  expect(factory.parameters.normalMs).toBe(1_200_000); expect(factory.prices.bier).toBe(220); expect(factory.viewMode).toBe('ticker');
 });
 it('reset_stops_pending_event_and_increases_ids', () => {
   const intro = command(live(),{type:'special',specialId:'bier-down'},60_000); const reset = command(intro,{type:'reset',kind:'evening'},65_000);

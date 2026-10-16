@@ -1,22 +1,23 @@
 import type { PreparedConfig, MarketState, MarketCommand, MarketContext, Rng, PriceMap, PriceEventKind, Transition } from './model.js';
 import { DomainError } from './types.js';
 import { createDefaultConfiguration, validateConfiguration } from './configuration.js';
-import { buildPreview, randomPrice, resolvePrices, validateOverride } from './prices.js';
+import { buildPreview, randomPrice, resolvePrices, validateOverride,validateDrinks } from './prices.js';
 import { createMarketClock, rebaseClock } from './market-clock.js';
 import { initialHistory, recordChanges } from './history.js';
 import { createSpecialSchedule, consumeSpecial } from './special-schedule.js';
 import { previewSpecial } from './specials.js';
 import { createSpecialCatalog } from './news-catalog.js';
-import {priceRevealInterval} from './parameters.js';
+import {crashIntroDuration,newsIntroDuration,priceRevealInterval,isMarketVolatility,isMarketVolatilityPercent,isMarketAveragePercent} from './parameters.js';
 import {prepareCrash,percentPrices,crashPrices} from './crash-prices.js';
 import {simulateStartupHistory} from './startup-history.js';
+import {harmonizePriceBands} from './price-bands.js';
 
 export function createMarket(config: PreparedConfig, wallNow: number, rng: Rng): MarketState {
   validateConfiguration(config);
   const prices = Object.fromEntries(config.drinks.map(d => [d.id,d.startCents]));
   const normal=buildPreview(config.drinks,prices,'normal',rng,config.parameters),crash=prepareCrash(config.drinks,prices,config.parameters,rng);
   return {
-    drinks:structuredClone(config.drinks),parameters:{...config.parameters},specials:structuredClone(config.specials),specialOrder:[...config.specialOrder],
+    drinks:structuredClone(config.drinks),parameters:{...config.parameters,crashAmplitudeFactor:2},specials:structuredClone(config.specials),specialOrder:[...config.specialOrder],
     schemaVersion:2,revision:0,runId:0,phase:'ready',prices,previousPrices:Object.fromEntries(config.drinks.map(d => [d.id,null])),
     previews:{normal,crash:crash.prices,recovery:null},...(crash.percent===undefined?{}:{nextCrashPercent:crash.percent}),
     overrides:{normal:{},crash:{}},deadline:null,transition:null,viewMode:'overview',chartMode:'bars-gap',tickerColumns:3,viewEpoch:wallNow,tickerWallAt:wallNow,publishedAt:wallNow,history:[],
@@ -107,10 +108,12 @@ export function applyCommand(s: MarketState, c: MarketCommand, t: MarketContext,
     case 'configure': {
       if (s.phase !== 'ready') locked('Markteinstellungen sind während des Abends gesperrt.');
       const drinks=c.drinks.map(drink=>{const fixed=s.drinks.find(d=>d.id===drink.id)?.fixedPriceCents;return fixed===undefined?drink:{...drink,fixedPriceCents:fixed};});
-      const fallback=createSpecialCatalog(drinks).map(x => s.specials.find(old => old.id === x.id) ?? x);
+      validateDrinks(drinks);
+      const derived=harmonizePriceBands(drinks);
+      const fallback=createSpecialCatalog(derived).map(x => s.specials.find(old => old.id === x.id) ?? x);
       const specials=c.specials ?? fallback; const ids=new Set(specials.map(x=>x.id));
       const order=c.specialOrder ?? [...s.specialOrder.filter(id=>ids.has(id)),...specials.map(x=>x.id).filter(id=>!s.specialOrder.includes(id))];
-      const fresh=createMarket({drinks,parameters:c.parameters ?? s.parameters,specials,specialOrder:order},t.wallNow,rng); fresh.revision=s.revision+1; fresh.runId=s.runId; fresh.viewMode=s.viewMode;fresh.chartMode=s.chartMode??'bars-gap';fresh.tickerColumns=s.tickerColumns??3;
+      const fresh=createMarket({drinks:derived,parameters:c.parameters ?? s.parameters,specials,specialOrder:order},t.wallNow,rng); fresh.revision=s.revision+1; fresh.runId=s.runId; fresh.viewMode=s.viewMode;fresh.chartMode=s.chartMode??'bars-gap';fresh.tickerColumns=s.tickerColumns??3;
       fresh.clock=rebaseClock(s.clock,t.wallNow,t.marketNow,{rate:s.clock.mode === 'simulation' ? 0 : 1});
       fresh.publishedAt=t.marketNow; fresh.viewEpoch=t.marketNow; fresh.historyByDrink=initialHistory(fresh.prices,t.marketNow,fresh.revision);fresh.startupHistoryByDrink=simulateStartupHistory(fresh.drinks,fresh.parameters,t.marketNow,fresh.revision); return fresh;
     }
@@ -134,7 +137,7 @@ export function applyCommand(s: MarketState, c: MarketCommand, t: MarketContext,
     case 'crash': {
       if (s.phase !== 'normal' || normalLocked(s,t.marketNow)) locked('Ein Crash kann jetzt nicht gestartet werden.');
       if (!s.previews.crash || !s.previews.normal) throw new DomainError('INVALID_PHASE','Die Crashvorschau fehlt.');
-      const intro=begin(s,{kind:'crash',publishAt:t.marketNow+s.parameters.transitionMs,prices:resolvePrices(s.previews.crash,s.overrides.crash),normalDeadline:s.deadline,interruptedNormalPreview:{...s.previews.normal}},t);
+      const intro=begin(s,{kind:'crash',publishAt:t.marketNow+crashIntroDuration(s.parameters),prices:resolvePrices(s.previews.crash,s.overrides.crash),normalDeadline:s.deadline,interruptedNormalPreview:{...s.previews.normal}},t);
       if(s.nextCrashPercent!==undefined)intro.activeCrashPercent=s.nextCrashPercent;
       intro.previews.normal=null; return intro;
     }
@@ -155,8 +158,48 @@ export function applyCommand(s: MarketState, c: MarketCommand, t: MarketContext,
     case 'ticker-speed':
       if(!Number.isSafeInteger(c.rowMs)||c.rowMs<1000||c.rowMs>4000||c.rowMs%50!==0)throw new DomainError('INVALID_INPUT','Laufliste: 1 bis 4 Sekunden pro Block in Schritten von 0,05 Sekunden.');
       next.tickerOffsetRows=Math.max(0,(t.wallNow-(s.tickerWallAt??s.publication?.wallAt??s.viewEpoch))/s.parameters.tickerRowMs+(s.tickerOffsetRows??0));next.tickerWallAt=t.wallNow;next.parameters.tickerRowMs=c.rowMs;break;
+    case 'market-average':{
+      if(!isMarketAveragePercent(c.percent))throw new DomainError('INVALID_INPUT','Globaler Average: ganze Prozentwerte von −10 bis +10.');
+      if(c.percent===(s.parameters.marketAveragePercent??0))return s;
+      next.parameters.marketAveragePercent=c.percent;
+      if(s.parameters.marketVolatilityPercent!==undefined){
+        if(s.previews.crash)next.previews.crash=s.nextCrashPercent===undefined?buildPreview(s.drinks,s.prices,'crash',rng,next.parameters):crashPrices(s.drinks,s.prices,s.nextCrashPercent,next.parameters,rng);
+        if(s.previews.recovery&&s.activeCrashPercent===undefined&&s.transition?.kind!=='recovery')next.previews.recovery=buildPreview(s.drinks,s.prices,'recovery',rng,next.parameters);
+      }
+      if(s.previews.normal&&s.transition?.kind!=='normal'&&!normalLocked(s,t.marketNow))next.previews.normal=buildPreview(s.drinks,s.prices,'normal',rng,next.parameters);
+      if(next.transition?.kind==='crash')next.transition.interruptedNormalPreview=buildPreview(s.drinks,s.prices,'normal',rng,next.parameters);
+      if(s.phase==='ready')next.startupHistoryByDrink=simulateStartupHistory(s.drinks,next.parameters,Math.min(...s.drinks.map(d=>s.historyByDrink[d.id][0].at)),s.revision+1);
+      break;
+    }
+    case 'market-volatility':{
+      if('percent' in c){
+        if(!isMarketVolatilityPercent(c.percent))throw new DomainError('INVALID_INPUT','Marktvolatilität: ganze Prozentwerte von 0 bis 75.');
+        if(c.percent===s.parameters.marketVolatilityPercent&&s.parameters.crashAmplitudeFactor===2)return s;
+        next.parameters.marketVolatilityPercent=c.percent;
+      }else{
+        if(!isMarketVolatility(c.factor))throw new DomainError('INVALID_INPUT','Marktvolatilität: 0 bis 3 in Schritten von 0,05.');
+        if(c.factor===(s.parameters.marketVolatility??1)&&s.parameters.marketVolatilityPercent===undefined&&s.parameters.crashAmplitudeFactor===2)return s;
+        next.parameters.marketVolatility=c.factor;delete next.parameters.marketVolatilityPercent;
+      }
+      next.parameters.crashAmplitudeFactor=2;
+      if(s.previews.normal&&s.transition?.kind!=='normal'&&!normalLocked(s,t.marketNow))next.previews.normal=buildPreview(s.drinks,s.prices,'normal',rng,next.parameters);
+      if(s.previews.crash){next.previews.crash=s.nextCrashPercent===undefined?buildPreview(s.drinks,s.prices,'crash',rng,next.parameters):crashPrices(s.drinks,s.prices,s.nextCrashPercent,next.parameters,rng);}
+      if(s.previews.recovery&&s.activeCrashPercent===undefined&&s.transition?.kind!=='recovery')next.previews.recovery=buildPreview(s.drinks,s.prices,'recovery',rng,next.parameters);
+      if(next.transition?.kind==='crash')next.transition.interruptedNormalPreview=buildPreview(s.drinks,s.prices,'normal',rng,next.parameters);
+      if(s.phase==='ready')next.startupHistoryByDrink=simulateStartupHistory(s.drinks,next.parameters,Math.min(...s.drinks.map(d=>s.historyByDrink[d.id][0].at)),s.revision+1);
+      break;
+    }
+    case 'skip-intro':{
+      if(s.phase!=='transition'||!s.transition)locked('Es läuft kein überspringbarer Einspieler.');
+      if(s.transition!.kind==='crash'||s.transition!.kind==='recovery'||s.transition!.kind==='normal')return publish(next,t,rng);
+      if(s.transition!.kind!=='special')locked('Es läuft kein überspringbarer Einspieler.');
+      const messageMs=s.parameters.newsMs-newsIntroDuration(s.parameters);
+      if(s.deadline!-t.marketNow<=messageMs)return publish(next,t,rng);
+      next.deadline=t.marketNow+messageMs;next.transition!.publishAt=next.deadline;
+      break;
+    }
     case 'skip-transition':{
-      if(s.clock.mode!=='simulation'||s.phase!=='transition'||s.transition?.kind==='special')locked('Nur Preiswechsel der Simulation können übersprungen werden.');
+      if(s.clock.mode!=='simulation'||s.phase!=='transition')locked('Nur Preiswechsel und Nachrichten der Simulation können übersprungen werden.');
       const target=s.deadline!;next.clock=rebaseClock(s.clock,t.wallNow,target,{rate:1});return publish(next,{wallNow:t.wallNow,marketNow:target},rng);
     }
     case 'reset': {

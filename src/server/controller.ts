@@ -1,4 +1,5 @@
 import type { AdminState, DisplayState, DrinkConfig, MarketCommand, Rng, Snapshot, TimeSnapshot } from '../domain/types.js';
+import type {PreparedConfig} from '../domain/model.js';
 import { createMarket, applyCommand, advanceMarket, nextBoundary } from '../domain/market.js';
 import { toAdminState, toDisplayState } from '../domain/snapshots.js';
 import { advanceClock, projectClock, restoreClock, rebaseClock } from '../domain/market-clock.js';
@@ -12,9 +13,9 @@ export interface MarketController {
   timeSnapshot(): TimeSnapshot;
   subscribe(listener: () => void): () => void;
 }
-export async function createController(repository: MarketRepository, options: { now: () => number; rng: Rng; drinks: DrinkConfig[] }): Promise<MarketController> {
+export async function createController(repository: MarketRepository, options: { now: () => number; rng: Rng; drinks: DrinkConfig[];configuration?:PreparedConfig }): Promise<MarketController> {
   const loaded = await repository.load();
-  let state = loaded ?? createMarket(options.drinks, options.now(), options.rng);
+  let state = loaded ?? createMarket(options.configuration??options.drinks, options.now(), options.rng);
   const initialWall=options.now();
   if (loaded && state.clock.mode === 'simulation') state={...state,revision:state.revision+1,clock:restoreClock(state.clock,initialWall)};
   const recovered = state.clock.mode === 'simulation' ? state : advanceMarket(state,{wallNow:initialWall,marketNow:projectClock(state.clock,initialWall,null).marketNow},options.rng);

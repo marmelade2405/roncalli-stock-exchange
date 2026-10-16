@@ -3,11 +3,12 @@ import { createRepository } from './repository.js';
 import { createController } from './controller.js';
 import { createApplication } from './http.js';
 import { DEFAULT_DRINKS } from '../domain/defaults.js';
+import {createDefaultConfiguration} from '../domain/configuration.js';
 const epoch = Date.now(); const start = performance.now();
 const now = () => Math.floor(epoch + performance.now() - start);
 try {
   const config = readConfig(process.env);
-  const controller = await createController(createRepository(config.stateFile), { now, rng: Math.random, drinks: DEFAULT_DRINKS });
+  const controller = await createController(createRepository(config.stateFile), { now, rng: Math.random, drinks: DEFAULT_DRINKS,configuration:createDefaultConfiguration(DEFAULT_DRINKS) });
   const app = createApplication(config, controller, now);
   let ticking = false;
   const timer = setInterval(() => { if (ticking) return; ticking = true; void controller.tick().catch(() => console.error('Preiswechsel konnte nicht gespeichert werden. Bitte Server und Speicher prüfen.')).finally(() => { ticking = false; }); }, 250);

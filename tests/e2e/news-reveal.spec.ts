@@ -1,0 +1,26 @@
+import {test,expect} from './fixtures.js';
+test('text_reveals_word_by_word_before_the_slower_quote_without_layout_jumps',async({page,testApp})=>{
+ await testApp.barList();await page.goto('/display');await testApp.externalCommand({type:'simulation',enabled:true});await testApp.externalCommand({type:'start'});await testApp.externalCommand({type:'special',specialId:'bier-down'});
+ await expect(page.locator('.intro-count')).not.toContainText(/Marktmeldung in/i);
+ await testApp.advanceTo(5500);
+ const words=page.locator('.news-word'),visible=page.locator('.news-word:visible');
+ expect(await words.count()).toBeGreaterThan(10);expect(await visible.count()).toBeGreaterThan(0);expect(await visible.count()).toBeLessThan(await words.count());
+ await expect(page.getByTestId('news-announcement')).toBeHidden();
+ const box=await page.locator('.news-message').boundingBox(),shown=await visible.count();await testApp.externalCommand({type:'pause',paused:true});await testApp.advanceTo(7500);expect(await visible.count()).toBe(shown);await testApp.externalCommand({type:'pause',paused:false});
+ await testApp.advanceTo(10000);expect(await visible.count()).toBe(await words.count());await expect(page.getByTestId('news-announcement-drink')).toBeVisible();await expect(page.getByTestId('news-announcement-change')).toBeHidden();
+ await testApp.advanceTo(11700);await expect(page.getByTestId('news-announcement-change')).toBeVisible();await expect(page.getByTestId('news-announcement-price')).toBeHidden();
+ await testApp.advanceTo(13200);await expect(page.getByTestId('news-announcement-price')).toBeVisible();const after=await page.locator('.news-message').boundingBox();expect(after!.height).toBeCloseTo(box!.height,0);expect(after!.y).toBeCloseTo(box!.y,0);
+ await page.screenshot({path:'.artifacts/previews/news-slow-reveal.png'});
+});
+test('admin_can_save_and_reload_text_and_quote_reveal_durations',async({page,testApp})=>{
+ await testApp.barList();await page.goto('/admin');await page.getByLabel('Passwort').fill(testApp.password);await page.getByRole('button',{name:'Anmelden',exact:true}).click();await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();
+ const text=page.getByTestId('parameter-newsTextRevealMs'),quote=page.getByTestId('parameter-newsQuoteRevealMs');await expect(text).toHaveValue('3');await expect(quote).toHaveValue('4,5');
+ await text.fill('6');await quote.fill('3');await page.getByTestId('settings-save').click();await expect(page.locator('#settings-error')).toBeEmpty();await page.reload();await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await expect(text).toHaveValue('6');await expect(quote).toHaveValue('3');
+ await testApp.externalCommand({type:'start'});await testApp.externalCommand({type:'special',specialId:'bier-down'});await page.goto('/display');await testApp.advanceTo(8000);expect(await page.locator('.news-word:visible').count()).toBeLessThan(await page.locator('.news-word').count());await expect(page.getByTestId('news-announcement')).toBeHidden();await testApp.advanceTo(11100);await expect(page.getByTestId('news-announcement-drink')).toBeVisible();await expect(page.getByTestId('news-announcement-change')).toBeHidden();await testApp.advanceTo(13200);await expect(page.getByTestId('news-announcement-price')).toBeVisible();
+});
+test('short_news_scales_long_reveals_to_fit_before_publication',async({page,testApp})=>{
+ await testApp.barList();await page.request.post('/api/login',{headers:{Origin:testApp.baseURL},data:{password:testApp.password}});const state=(await(await page.request.get('/api/admin/state')).json()).state;await testApp.externalCommand({type:'configure',drinks:state.config,parameters:{...state.parameters,newsMs:1000,newsIntroMs:0,newsTextRevealMs:10000,newsQuoteRevealMs:10000}});await page.goto('/display');await testApp.externalCommand({type:'start'});await testApp.externalCommand({type:'special',specialId:'bier-down'});await testApp.advanceTo(500);expect(await page.locator('.news-word:visible').count()).toBe(await page.locator('.news-word').count());await expect(page.getByTestId('news-announcement-price')).toBeHidden();await testApp.advanceTo(900);await expect(page.getByTestId('news-announcement-price')).toBeVisible();await testApp.advanceTo(1000);await expect(page.getByTestId('breaking-news')).toBeHidden();await expect(page.getByTestId('display-price-bier')).toContainText('1,50');
+});
+test('zero_reveal_durations_show_the_whole_message_and_quote_immediately',async({page,testApp})=>{
+ await testApp.barList();await page.request.post('/api/login',{headers:{Origin:testApp.baseURL},data:{password:testApp.password}});const state=(await(await page.request.get('/api/admin/state')).json()).state;await testApp.externalCommand({type:'configure',drinks:state.config,parameters:{...state.parameters,newsIntroMs:0,newsTextRevealMs:0,newsQuoteRevealMs:0}});await page.goto('/display');await testApp.externalCommand({type:'start'});await testApp.externalCommand({type:'special',specialId:'bier-down'});await expect(page.getByTestId('news-announcement-price')).toBeVisible();await expect(page.getByTestId('news-announcement-price')).toHaveCSS('opacity','1');const words=page.locator('.news-word');expect(await words.count()).toBeGreaterThan(10);expect(await page.locator('.news-word:visible').count()).toBe(await words.count());
+});

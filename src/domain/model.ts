@@ -1,6 +1,6 @@
 import type { Cents, DrinkConfig, PriceMap, OverrideMap, ViewMode } from './types.js';
 export type { Cents, DrinkConfig, PriceMap, OverrideMap, ViewMode, Rng } from './types.js';
-export interface MarketParameters { normalMs: number; crashMs: number; transitionMs: number; newsMs: number; newsIntroMs?:number; priceRevealMs?:number; eveningMs: number; minSpecialGapMs: number; crashMinPercent?:number;crashMaxPercent?:number;crashTrendPercent: number; recoveryTrendPercent: number; crashAmplitudeFactor: number; historyChanges: number; tickerRowMs: number }
+export interface MarketParameters { normalMs: number; marketVolatility?:number; marketVolatilityPercent?:number; marketAveragePercent?:number; crashCostCents?:number; crashMs: number; transitionMs: number; crashIntroMs?:number; newsMs: number; newsIntroMs?:number; newsTextRevealMs?:number; newsQuoteRevealMs?:number; priceRevealMs?:number; eveningMs: number; minSpecialGapMs: number; crashMinPercent?:number;crashMaxPercent?:number;crashTrendPercent: number; recoveryTrendPercent: number; crashAmplitudeFactor: number; historyChanges: number; tickerRowMs: number }
 export interface Publication{wallAt:number;revision:number;kind:Exclude<PriceEventKind,'start'>;changedDrinkIds:string[]}
 // percent is legacy metadata for older market files; it does not control prices.
 export interface SpecialDefinition { id: string; drinkId: string; direction: 'up' | 'down'; percent?: number; targetCents?:number; headline: string; body: string }
@@ -37,7 +37,7 @@ export type MarketCommand =
   | { type: 'view'; mode: ViewMode }
   | {type:'chart-mode';mode:ChartMode}
   | {type:'ticker-columns';columns:2|3}
-  | {type:'ticker-speed';rowMs:number} | {type:'skip-transition'}
+  | {type:'ticker-speed';rowMs:number} | {type:'skip-transition'} | {type:'skip-intro'} | {type:'market-volatility';factor:number} | {type:'market-volatility';percent:number} | {type:'market-average';percent:number}
   | { type: 'configure'; drinks: DrinkConfig[]; parameters?: MarketParameters; specials?: SpecialDefinition[]; specialOrder?: string[] }
   | { type: 'correct'; drinkId: string; value: Cents }
   | { type: 'special'; specialId: string }
@@ -45,6 +45,7 @@ export type MarketCommand =
   | { type: 'simulation'; enabled: boolean; speed?: Speed }
   | { type: 'pause'; paused: boolean };
 export interface SpecialPreview { price: Cents; delta: Cents; percent: number; limited: boolean }
+export interface NewsQuote {priceCents:Cents;deltaCents:Cents;percent:number|null}
 export interface DisplayState {
   revision: number; runId: number; phase: MarketState['phase']; drinks: (Pick<DrinkConfig,'id'|'name'|'category'|'minCents'|'maxCents'> & {averageCents:number})[];
   prices: PriceMap; previousPrices: Record<string,Cents|null>; deadline: number|null; nextKind: RoundKind|null; nextNormalAt: number|null; hideAt: number|null;
@@ -52,12 +53,13 @@ export interface DisplayState {
   chartMode?:ChartMode;
   tickerColumns?:2|3;
   startupHistoryByDrink?:PriceHistories;
-  parameters: Pick<MarketParameters,'transitionMs'|'newsMs'|'newsIntroMs'|'priceRevealMs'|'historyChanges'|'tickerRowMs'>;
+  parameters: Pick<MarketParameters,'marketAveragePercent'|'crashCostCents'|'transitionMs'|'crashIntroMs'|'newsMs'|'newsIntroMs'|'newsTextRevealMs'|'newsQuoteRevealMs'|'priceRevealMs'|'historyChanges'|'tickerRowMs'>;
   publication?:Publication;
   crashPercent?:number;tickerOffsetRows?:number;tickerWallAt?:number;
   roundPublication?:Publication;
   quotePublicationOverrides?:Record<string,{wallAt:number;revision:number}>;
-  news: Pick<SpecialDefinition,'id'|'drinkId'|'direction'|'headline'|'body'>|null;
+  showOpeningNews?:boolean;
+  news: (Pick<SpecialDefinition,'id'|'drinkId'|'direction'|'headline'|'body'> & {quote?:NewsQuote})|null;
   recentNews:(Pick<SpecialDefinition,'id'|'drinkId'|'direction'|'headline'|'body'> & {publishedAt:number})|null;
 }
 export interface AdminState extends DisplayState {

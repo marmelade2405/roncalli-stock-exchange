@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { createController } from '../../src/server/controller.js';
+import {createDefaultConfiguration} from '../../src/domain/configuration.js';
 import type { MarketRepository } from '../../src/server/repository.js';
 import { createMarket, applyCommand, advanceMarket } from '../../src/domain/market.js';
 import type { MarketState } from '../../src/domain/types.js';
@@ -9,6 +10,11 @@ function memory(initial: MarketState | null = null) {
   const repository: MarketRepository = { load: async () => structuredClone(saved), save: async state => { if (fault) throw Error('Disk unavailable'); saved = structuredClone(state); } };
   return { repository, fault: (enabled: boolean) => { fault = enabled; }, state: () => saved };
 }
+it('a_fresh_server_uses_prepared_crash_timing_without_shortening_its_intro',async()=>{
+  let now=0;const configuration=createDefaultConfiguration([makeDrink()],midpointRng),controller=await createController(memory().repository,{now:()=>now,rng:midpointRng,drinks:configuration.drinks,configuration});
+  await controller.dispatch({type:'start'},controller.adminSnapshot().state.revision);await controller.dispatch({type:'crash'},controller.adminSnapshot().state.revision);
+  expect(controller.adminSnapshot().state.deadline).toBe(15000);now=10000;await controller.tick();expect(controller.publicSnapshot().state.phase).toBe('transition');now=15000;await controller.tick();expect(controller.publicSnapshot().state.phase).toBe('crash');
+});
 it('failed_save_preserves_memory_and_inputs', async () => {
   let now = 0; const storage = memory();
   const controller = await createController(storage.repository, { now: () => now, rng: midpointRng, drinks: [makeDrink()] });

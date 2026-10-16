@@ -80,7 +80,10 @@ export function validateStoredMarket(value: unknown): asserts value is MarketSta
 }
 export function migrateLegacy(legacy: LegacyMarketState, wallNow: number, rng: Rng): MarketState {
   validateLegacyMarket(legacy);
-  const config=createDefaultConfiguration(legacy.drinks,rng); const state=createMarket(config,wallNow,rng);
+  const config=createDefaultConfiguration(legacy.drinks,rng);
+  delete config.parameters.marketVolatilityPercent;
+  config.parameters.crashIntroMs=config.parameters.transitionMs;
+  const state=createMarket(config,wallNow,rng);
   state.revision=legacy.revision; state.phase=legacy.phase; state.prices={...legacy.prices}; state.previews=structuredClone(legacy.previews); state.overrides=structuredClone(legacy.overrides);
   delete state.nextCrashPercent;delete state.activeCrashPercent;
   state.deadline=legacy.deadline; state.viewMode=legacy.viewMode; state.viewEpoch=legacy.viewEpoch; state.publishedAt=legacy.publishedAt; state.history=structuredClone(legacy.history);

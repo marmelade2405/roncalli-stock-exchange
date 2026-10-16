@@ -3,7 +3,7 @@ import type {AdminState,Snapshot} from '../../src/domain/model.js';
 test('five_hour_simulation_consumes_manual_news_and_resets_for_real_evening',async({page,context,testApp})=>{
   test.setTimeout(60000);
   await signIn(page,testApp);await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();
-  await page.getByLabel('Name für Bier',{exact:true}).fill('Hausbier');await page.getByLabel('Start € für Bier',{exact:true}).fill('2,10');
+  await page.getByLabel('Name für Bier',{exact:true}).fill('Hausbier');await page.getByLabel('Average € für Bier',{exact:true}).fill('2,10');
   await page.getByTestId('settings-save').click();await expect(page.getByTestId('current-bier-value')).toContainText('2,10');
   await page.getByRole('tab',{name:'Kurse',exact:true}).click();await page.getByTestId('normal-bier-input').fill('2,70');await page.getByTestId('normal-bier-input').blur();await expect(page.getByTestId('normal-bier-status')).toContainText('Gespeichert');
   const read=async():Promise<Snapshot<AdminState>>=>{const response=await page.request.get(testApp.baseURL+'/api/admin/state');expect(response.ok(),await response.text()).toBeTruthy();return response.json();};

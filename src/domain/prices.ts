@@ -2,14 +2,24 @@ import { DomainError, type Cents, type DrinkConfig, type OverrideMap, type Price
 import type { MarketParameters } from './model.js';
 import { DEFAULT_PARAMETERS } from './parameters.js';
 export function hasVariablePrice(drink:DrinkConfig):boolean{return drink.minCents!==drink.maxCents;}
+export function averageTargetCents(drink:DrinkConfig,percent=0):number{
+  return drink.fixedPriceCents??Math.max(drink.minCents,Math.min(drink.maxCents,Math.round((drink.averageCents??drink.startCents)*(1+percent/100))));
+}
+export function volatilityPercent(parameters:MarketParameters):number{return parameters.marketVolatilityPercent??25*(parameters.marketVolatility??1);}
+export function volatilityBasisCents(drink:DrinkConfig,parameters:MarketParameters):number{
+  if(drink.fixedPriceCents!==undefined||drink.minCents===drink.maxCents)return 0;
+  if(parameters.marketVolatilityPercent===undefined)return drink.amplitudeCents*(parameters.marketVolatility??1);
+  return averageTargetCents(drink,parameters.marketAveragePercent??0)*parameters.marketVolatilityPercent/100;
+}
 export interface NormalPriceProfile {downCents:number;upCents:number;outlierProbability:number;minProbability:number;maxProbability:number}
-export function normalPriceProfile(drink:DrinkConfig,centre=drink.averageCents??drink.startCents):NormalPriceProfile {
-  const range=drink.maxCents-drink.minCents,average=drink.averageCents??drink.startCents;
-  if(!range||drink.averageCents===undefined)return {downCents:drink.amplitudeCents,upCents:drink.amplitudeCents,outlierProbability:0,minProbability:0,maxProbability:0};
+export function normalPriceProfile(drink:DrinkConfig,centre=drink.averageCents??drink.startCents,volatility=1,target?:number,basisCents?:number):NormalPriceProfile {
+  const amplitude=basisCents??drink.amplitudeCents*volatility;
+  const range=drink.maxCents-drink.minCents,average=target??drink.averageCents??drink.startCents;
+  if(!range||drink.averageCents===undefined&&target===undefined)return {downCents:amplitude,upCents:amplitude,outlierProbability:0,minProbability:0,maxProbability:0};
   const below=average-drink.minCents,above=drink.maxCents-average;
-  const outlierProbability=.25*Math.min(1,drink.amplitudeCents/Math.max(drink.stepCents,Math.min(below,above)));
+  const outlierProbability=.25*Math.min(1,amplitude/Math.max(drink.stepCents,Math.min(below,above)));
   const base=(drink.reversionPercent??75)===0;
-  return {downCents:Math.min(centre-drink.minCents,base?drink.amplitudeCents:2*drink.amplitudeCents*below/range),upCents:Math.min(drink.maxCents-centre,base?drink.amplitudeCents:2*drink.amplitudeCents*above/range),outlierProbability,minProbability:outlierProbability*(drink.maxCents-centre)/range,maxProbability:outlierProbability*(centre-drink.minCents)/range};
+  return {downCents:Math.min(centre-drink.minCents,base?amplitude:2*amplitude*below/range),upCents:Math.min(drink.maxCents-centre,base?amplitude:2*amplitude*above/range),outlierProbability,minProbability:outlierProbability*(drink.maxCents-centre)/range,maxProbability:outlierProbability*(centre-drink.minCents)/range};
 }
 function randomSample(rng:Rng):number{const sample=rng();if(!Number.isFinite(sample)||sample<0||sample>=1)throw new DomainError('INVALID_INPUT','Ungültiger Zufallswert.');return sample;}
 
@@ -17,11 +27,12 @@ export function randomPrice(drink: DrinkConfig, current: Cents, kind: RandomRoun
   if(drink.fixedPriceCents!==undefined)return drink.fixedPriceCents;
   const sample = randomSample(rng);
   const factor = kind === 'crash' ? 1 + parameters.crashTrendPercent/100 : kind === 'recovery' ? 1 + parameters.recoveryTrendPercent/100 : 1;
-  const amplitude = drink.amplitudeCents * (kind === 'crash' ? parameters.crashAmplitudeFactor : 1);
-  const centre=kind==='normal'&&drink.averageCents!==undefined?current+(drink.averageCents-current)*(drink.reversionPercent??75)/100:current*factor;
+  const basis=volatilityBasisCents(drink,parameters),amplitude = basis * (kind === 'crash' ? 2 : 1);
+  const hasAverage=drink.averageCents!==undefined||(parameters.marketAveragePercent??0)!==0,target=averageTargetCents(drink,parameters.marketAveragePercent??0);
+  const centre=kind==='normal'&&hasAverage?current+(target-current)*(drink.reversionPercent??75)/100:current*factor;
   let value=centre+(sample*2-1)*amplitude;
-  if(kind==='normal'&&drink.averageCents!==undefined){
-    const profile=normalPriceProfile(drink,centre);
+  if(kind==='normal'&&hasAverage){
+    const profile=normalPriceProfile(drink,centre,parameters.marketVolatility??1,target,basis);
     if(sample<profile.minProbability)return drink.minCents;
     if(sample<profile.outlierProbability)return drink.maxCents;
     const magnitude=randomSample(rng);
@@ -35,7 +46,7 @@ export function randomPrice(drink: DrinkConfig, current: Cents, kind: RandomRoun
   const steps=value/drink.stepCents,lower=Math.floor(steps),fraction=steps-lower;
   // Preserve the expected normal price on the discrete grid: small reversion
   // must not disappear permanently when it is smaller than half a price step.
-  const rounded=kind==='normal'&&drink.averageCents!==undefined&&(drink.reversionPercent??75)>0&&fraction>0
+  const rounded=kind==='normal'&&hasAverage&&(drink.reversionPercent??75)>0&&fraction>0
     ?(lower+(randomSample(rng)<=fraction?1:0))*drink.stepCents
     :Math.round(steps)*drink.stepCents;
   return Math.max(drink.minCents, Math.min(drink.maxCents, rounded));

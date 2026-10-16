@@ -15,7 +15,7 @@ it('reload_keeps_previews_and_overrides', async () => {
   let state = createMarket([makeDrink()], 0, () => .8);
   state = applyCommand(state, { type: 'override', scope: 'normal', drinkId: 'bier', value: 250 }, 1, midpointRng);
   await repository.save(state);
-  expect(await createRepository(path).load()).toMatchObject({ prices: { bier: 200 }, previews: { normal: { bier: 220 } }, overrides: { normal: { bier: 250 } } });
+  expect(await createRepository(path).load()).toMatchObject({ prices: { bier: 200 }, previews: { normal: { bier: 230 } }, overrides: { normal: { bier: 250 } } });
 });
 it('corrupt_file_is_not_replaced', async () => {
   const path = await file();

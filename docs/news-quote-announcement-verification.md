@@ -1,0 +1,11 @@
+# Visuelle Kursankündigung — 2026-10-12
+
+Während des bestehenden Breaking-News-Einspielers erscheinen Getränkename, tatsächliche Änderung in Euro/Prozent und neuer Preis gestaffelt über dem Video. Die Einblendung verwendet die bereits festgeschriebenen Special-Preise; aktuelle Verkaufspreise werden weiterhin erst am bisherigen Veröffentlichungstermin geändert. „Neuer Kurs · bei Freigabe“ kennzeichnet den angekündigten Preis. Es wurde ausdrücklich keine Sprachausgabe und kein zusätzlicher Ton ergänzt.
+
+Die Fly-ins folgen der Marktzeit und bleiben bei Pause stehen. Vor der transparenten Videoschlussfläche blendet die Ankündigung aus. Richtung und Farbe folgen der tatsächlichen Preisänderung, auch wenn Benes fallend klassifiziertes Special einen zuvor günstigeren Bierpreis auf 1,50 € erhöht. Fehlende Ankündigungsdaten blenden den neuen Bereich aus. Reduzierte Bewegung verwendet statische Einblendungen, lange Getränkenamen dürfen auf kleinen Displays umbrechen. Es bleibt immer genau eine sichtbare Überspringen-Schaltfläche.
+
+Die öffentliche Projektion enthält nur den ausgewählten eingefrorenen Nachrichtenkurs und dessen tatsächliche Änderung. Normale Vorschläge, Crashvorschläge, andere zukünftige Specials und manuelle Vorgaben bleiben privat. Bei einem Ausgangspreis von 0 ist die Prozentänderung nicht definiert und wird als Gedankenstrich dargestellt.
+
+Verifikation: TypeScript und Produktionsbuild erfolgreich, alle 236 Unit-Tests und 14 betroffene Browserfälle bestanden. Neue Daten-/UI-Tests wurden zunächst gegen fehlende Ankündigungsdaten beziehungsweise fehlende Einblendung geprüft. Pause, Aufwärtsänderung bei Benes Down-ID, schmale Namen, fehlende Quote, transparente Schlussframes, Preisfreigabe und Überspringen sind geprüft. Screenshots: `.artifacts/previews/news-quote-announcement.png` und `news-quote-announcement-narrow.png`. Unabhängige Prüfung ohne offene Befunde.
+
+Die laufende Anwendung wurde aktualisiert und das neue Anzeige-Bundle geprüft. Preise, Historien, Vorschauen, Overrides, Queue, Timer, Parameter und vorbereitete Ereignisse blieben erhalten; die zuvor laufende Simulation wurde fortgesetzt. Backup: `data/market.json.before-news-announcement-1791827883270.bak`. Kein Special wurde für die Live-Prüfung ausgelöst.

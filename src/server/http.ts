@@ -6,6 +6,7 @@ import { RevisionConflictError, type MarketController } from './controller.js';
 import { createAuth, isAllowedOrigin } from './auth.js';
 import { attachRealtime } from './realtime.js';
 import {isSimulationSpeed} from '../domain/simulation-speed.js';
+import {isMarketVolatility,isMarketVolatilityPercent,isMarketAveragePercent} from '../domain/parameters.js';
 import type { ServerConfig } from './config.js';
 class HttpError extends Error { constructor(public status: number, public code: string, message: string) { super(message); } }
 const record = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -27,8 +28,10 @@ function parseCommand(value: Record<string, unknown>): CommandRequest {
   const command = value.command;
   const invalid = () => { throw new HttpError(400, 'INVALID_INPUT', 'Der Bedienbefehl ist ungültig.'); };
   switch (command.type) {
-    case 'start': case 'crash': case 'cancel-crash': case 'step':case 'skip-transition': break;
+    case 'start': case 'crash': case 'cancel-crash': case 'step':case 'skip-transition':case 'skip-intro': break;
     case 'ticker-speed':if(!Number.isSafeInteger(command.rowMs))invalid();break;
+    case 'market-average':if(!isMarketAveragePercent(command.percent))invalid();break;
+    case 'market-volatility':if('percent' in command ? !isMarketVolatilityPercent(command.percent)||'factor' in command : !isMarketVolatility(command.factor))invalid();break;
     case 'chart-mode':if(!['line','bars','bars-gap'].includes(String(command.mode)))invalid();break;
     case 'ticker-columns':if(command.columns!==2&&command.columns!==3)invalid();break;
     case 'view': if (command.mode !== 'overview' && command.mode !== 'ticker') invalid(); break;
@@ -87,8 +90,17 @@ export function createApplication(config: ServerConfig, controller: MarketContro
     try {
       const [canonicalRoot, canonicalFile] = await Promise.all([realpath(root), realpath(target)]);
       if (!canonicalFile.startsWith(canonicalRoot + sep)) throw new HttpError(403, 'FORBIDDEN', 'Zugriff auf diese Datei ist nicht erlaubt.');
-      const mime: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
-      const data = await readFile(canonicalFile); response.writeHead(200, { 'Content-Type': mime[extname(canonicalFile)] || 'application/octet-stream' }); response.end(data);
+      const mime: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.woff2': 'font/woff2','.webm':'video/webm','.mp4':'video/mp4','.m4a':'audio/mp4','.png':'image/png' };
+      const data=await readFile(canonicalFile),type=mime[extname(canonicalFile)]||'application/octet-stream',media=['.mp4','.webm','.m4a'].includes(extname(canonicalFile));
+      if(media){
+        const range=request.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
+        if(range&&(range[1]||range[2])){
+          const suffix=range[1]==='',requestedStart=suffix?Math.max(0,data.length-Number(range[2])):Number(range[1]),requestedEnd=suffix||range[2]===''?data.length-1:Number(range[2]);
+          if(!Number.isSafeInteger(requestedStart)||!Number.isSafeInteger(requestedEnd)||suffix&&(!Number.isSafeInteger(Number(range[2]))||Number(range[2])<=0)||requestedStart>=data.length||requestedStart>requestedEnd){response.writeHead(416,{'Content-Range':`bytes */${data.length}`,'Accept-Ranges':'bytes'});response.end();return;}
+          const end=Math.min(requestedEnd,data.length-1);response.writeHead(206,{'Content-Type':type,'Accept-Ranges':'bytes','Content-Length':end-requestedStart+1,'Content-Range':`bytes ${requestedStart}-${end}/${data.length}`});response.end(data.subarray(requestedStart,end+1));return;
+        }
+      }
+      response.writeHead(200,{'Content-Type':type,'Content-Length':data.length,...(media?{'Accept-Ranges':'bytes'}:{})});response.end(data);
     } catch (error) {
       if (['ENOENT', 'ENOTDIR', 'EISDIR'].includes((error as NodeJS.ErrnoException).code || '')) throw new HttpError(404, 'NOT_FOUND', 'Diese Seite ist nicht vorhanden.');
       throw error;

@@ -2,7 +2,7 @@ import type { WebSocketRoute } from '@playwright/test';
 import { test, expect, signIn } from './fixtures.js';
 test('all_business_parameters_are_editable_before_start', async ({ page, testApp }) => {
   await signIn(page,testApp); await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();
-  for (const key of ['normalMs','crashMs','transitionMs','newsMs','eveningMs','newsIntroMs','crashMinPercent','crashMaxPercent','historyChanges']) await expect(page.getByTestId(`parameter-${key}`)).toBeEnabled();
+  for (const key of ['normalMs','crashMs','transitionMs','newsMs','crashCostCents','newsIntroMs','newsTextRevealMs','newsQuoteRevealMs','crashMinPercent','crashMaxPercent','historyChanges']) await expect(page.getByTestId(`parameter-${key}`)).toBeEnabled();
   await page.getByTestId('parameter-normalMs').fill('15'); await page.getByTestId('parameter-crashMs').fill('6');
   await page.locator('.news-editor').filter({has:page.getByTestId('news-bier-down-headline')}).locator('summary').click();
   await page.getByTestId('news-bier-down-headline').fill('Biermarkt unter Druck'); await expect(page.getByTestId('news-bier-down-percent')).toHaveCount(0);await page.getByTestId('news-bier-down-target').fill('1,10');

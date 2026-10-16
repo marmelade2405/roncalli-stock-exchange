@@ -1,5 +1,15 @@
 import { expect, it } from 'vitest';
 import { openApp } from './app-fixture.js';
+it('market_volatility_percent_requires_admin_and_rejects_fractional_or_ambiguous_input',async()=>{
+ const app=await openApp();expect((await app.command({type:'market-volatility',percent:40},0,'')).status).toBe(401);const cookie=await app.cookie();for(const percent of[-1,76,40.5,'40'])expect((await app.command({type:'market-volatility',percent},0,cookie)).status).toBe(400);expect((await app.command({type:'market-volatility',percent:40,factor:1},0,cookie)).status).toBe(400);expect((await app.command({type:'market-volatility',percent:40},0,cookie)).status).toBe(200);expect(app.controller.adminSnapshot().state.parameters.marketVolatilityPercent).toBe(40);
+});
+it('market_volatility_requires_admin_and_rejects_invalid_factors',async()=>{
+ const app=await openApp();expect((await app.command({type:'market-volatility',factor:.5},0,'')).status).toBe(401);const cookie=await app.cookie();expect((await app.command({type:'market-volatility',factor:3.05},0,cookie)).status).toBe(400);expect((await app.command({type:'market-volatility',factor:.5},0,cookie)).status).toBe(200);expect(app.controller.adminSnapshot().state.parameters.marketVolatility).toBe(.5);expect((await app.command({type:'market-volatility',factor:1},0,cookie)).status).toBe(409);
+});
+it('local_media_supports_byte_ranges_for_video_seeking',async()=>{
+ const app=await openApp(),response=await fetch(app.base+'/media/breaking-news-intro.webm',{headers:{Range:'bytes=0-31'}});expect(response.status).toBe(206);expect(response.headers.get('accept-ranges')).toBe('bytes');expect(response.headers.get('content-range')).toMatch(/^bytes 0-31\/\d+$/);expect((await response.arrayBuffer()).byteLength).toBe(32);
+ const invalid=await fetch(app.base+'/media/breaking-news-intro.webm',{headers:{Range:'bytes=999999999-'}});expect(invalid.status).toBe(416);expect(invalid.headers.get('content-range')).toMatch(/^bytes \*\/\d+$/);
+});
 it('anonymous_mutation_is_401', async () => {
   const app = await openApp();
   expect((await app.command({ type: 'start' }, 0, '')).status).toBe(401);

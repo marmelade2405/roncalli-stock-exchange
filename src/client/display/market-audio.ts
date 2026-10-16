@@ -1,32 +1,63 @@
-import type {SoundCue} from './sound-events.js';
 export function createMarketAudio(button:HTMLButtonElement,slider:HTMLInputElement,controls:HTMLElement){
-  let context:AudioContext|null=null,wanted=false,volume=.25;const nodes=new Set<OscillatorNode>();
-  try{wanted=localStorage.getItem('market-sounds')==='on';const stored=localStorage.getItem('market-sound-volume');if(stored!==null&&Number.isFinite(Number(stored)))volume=Math.max(0,Math.min(1,Number(stored)));}catch{}
+  let context:AudioContext|null=null,wanted=true,volume=.25;
+  const news=createOriginalClip('/media/breaking-news-intro.m4a'),crash=createOriginalClip('/media/crash-intro.m4a');
+  try{wanted=localStorage.getItem('market-sounds')!=='off';const stored=localStorage.getItem('market-sound-volume');if(stored!==null&&Number.isFinite(Number(stored)))volume=Math.max(0,Math.min(1,Number(stored)));}catch{}
   const active=()=>wanted&&context?.state==='running';
-  function render(){button.textContent=active()?'🔊 Ton an':'🔇 Ton aktivieren';button.setAttribute('aria-pressed',String(active()));button.setAttribute('aria-label',active()?'Ton ausschalten':'Ton aktivieren');controls.hidden=!wanted;slider.value=String(Math.round(volume*100));}
+  function render(){button.textContent=active()?'🔊 Ton an':'🔇 Ton aktivieren';button.setAttribute('aria-pressed',String(active()));button.setAttribute('aria-label',active()?'Ton ausschalten':'Ton aktivieren');controls.hidden=false;slider.value=String(Math.round(volume*100));}
   function save(){try{localStorage.setItem('market-sounds',wanted?'on':'off');localStorage.setItem('market-sound-volume',String(volume));}catch{}}
-  function stop(){for(const node of nodes){try{node.stop();}catch{}}nodes.clear();}
-  function tone(frequency:number,delay:number,duration:number,type:OscillatorType='sine',end=frequency){
-    if(!active()||!context||volume===0)return;const oscillator=context.createOscillator(),gain=context.createGain(),at=context.currentTime+delay;
-    oscillator.type=type;oscillator.frequency.setValueAtTime(frequency,at);oscillator.frequency.exponentialRampToValueAtTime(end,at+duration);gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(Math.max(.0001,.07*volume),at+.012);gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
-    oscillator.connect(gain);gain.connect(context.destination);nodes.add(oscillator);oscillator.onended=()=>{nodes.delete(oscillator);oscillator.disconnect();gain.disconnect();};oscillator.start(at);oscillator.stop(at+duration+.02);
+  function stop(){news.suppress();crash.suppress();}
+  function pause(){news.pause();crash.pause();}
+  function createOriginalClip(url:string){
+    let buffer:AudioBuffer|null=null,loading:Promise<void>|null=null;
+    let source:AudioBufferSourceNode|null=null,gain:GainNode|null=null;
+    let currentKey:string|null=null,suppressed=false,completed=false;
+    function stopClip(){
+      const oldSource=source,oldGain=gain;source=null;gain=null;
+      if(oldSource){oldSource.onended=null;try{oldSource.stop();}catch{}oldSource.disconnect();}
+      oldGain?.disconnect();
+    }
+    function suppress(){suppressed=true;stopClip();}
+    function prepare(){
+      if(buffer||loading||!context)return;
+      const decoder=context;
+      loading=(async()=>{
+        const response=await fetch(url);
+        if(!response.ok)throw new Error('Intro audio unavailable');
+        buffer=await decoder.decodeAudioData(await response.arrayBuffer());
+      })().catch(()=>{}).finally(()=>{loading=null;});
+    }
+    function sync(key:string|null,elapsedMs:number,introMs:number,allowed:boolean){
+      if(key!==currentKey){stopClip();currentKey=key;completed=false;suppressed=!active()||volume===0;}
+      if(!key){stopClip();return;}
+      // Muted events remain consumed when sound is enabled again.
+      if(!wanted)suppressed=true;
+      if(!Number.isFinite(elapsedMs)||!Number.isFinite(introMs)||introMs<=0||elapsedMs>=introMs){
+        stopClip();completed=true;return;
+      }
+      if(!allowed||!active()||volume===0||suppressed||completed){stopClip();return;}
+      if(source||!buffer||!context)return;
+      const nextSource=context.createBufferSource(),nextGain=context.createGain();
+      nextSource.buffer=buffer;
+      // Fit the complete recording to this intro and resume at market time.
+      nextSource.playbackRate.value=buffer.duration/(introMs/1000);
+      nextGain.gain.setValueAtTime(volume,context.currentTime);
+      nextSource.connect(nextGain);nextGain.connect(context.destination);source=nextSource;gain=nextGain;
+      nextSource.onended=()=>{
+        if(source!==nextSource)return;
+        completed=true;source=null;gain=null;nextSource.disconnect();nextGain.disconnect();
+      };
+      try{nextSource.start(0,Math.max(0,elapsedMs)/introMs*buffer.duration);}
+      catch{stopClip();completed=true;}
+    }
+    function setVolume(){if(volume===0)stopClip();else if(gain&&context)gain.gain.setValueAtTime(volume,context.currentTime);}
+    return{prepare,sync,suppress,setVolume,pause:stopClip};
   }
-  function play(cue:SoundCue){
-    if(!active())return;
-    if(cue==='quote-pop'){tone(1050,0,.055);return;}
-    if(cue==='crash-intro'){tone(420,0,.9,'triangle',70);tone(140,.1,.65);return;}
-    if(cue==='special-intro'){for(const[i,f]of[520,780,1040,1560].entries())tone(f,i*.11,.24,'triangle');return;}
-    if(cue==='normal-intro'){tone(720,0,.1);tone(960,.13,.15);return;}
-    if(cue==='recovery-intro'){for(const[i,f]of[330,440,660].entries())tone(f,i*.12,.3);return;}
-    if(cue==='crash-published'){tone(165,0,.45,'triangle');tone(220,.08,.4);return;}
-    for(const[i,f]of[880,1108,1320].entries())tone(f,i*.05,.45);
-  }
-  button.onclick=()=>{
-    if(active()){wanted=false;stop();save();render();return;}
+  function activate(){
     button.disabled=true;wanted=true;
-    try{context??=new AudioContext();context.onstatechange=render;void context.resume().then(()=>{save();render();play('normal-published');}).catch(()=>{wanted=false;button.textContent='Ton nicht verfügbar';button.setAttribute('aria-pressed','false');controls.hidden=true;}).finally(()=>{button.disabled=false;});}
-    catch{wanted=false;button.disabled=false;button.textContent='Ton nicht verfügbar';button.setAttribute('aria-pressed','false');controls.hidden=true;}
-  };
-  slider.oninput=()=>{volume=Math.max(0,Math.min(1,Number(slider.value)/100));stop();save();};
-  render();return{active,play,stop};
+    try{context??=new AudioContext();context.onstatechange=()=>{if(context?.state!=='running')stop();render();};news.prepare();crash.prepare();void context.resume().then(()=>{save();render();}).catch(()=>{wanted=false;stop();button.textContent='Ton nicht verfügbar';button.setAttribute('aria-pressed','false');controls.hidden=false;}).finally(()=>{button.disabled=false;});}
+    catch{wanted=false;button.disabled=false;button.textContent='Ton nicht verfügbar';button.setAttribute('aria-pressed','false');controls.hidden=false;}
+  }
+  button.onclick=()=>{if(active()){wanted=false;stop();save();render();return;}activate();};
+  slider.oninput=()=>{volume=Math.max(0,Math.min(1,Number(slider.value)/100));news.setVolume();crash.setVolume();save();};
+  render();return{active,stop,pause,unlockDefault(){if(wanted&&!active()&&!button.disabled)activate();},syncNews:news.sync,syncCrash:crash.sync};
 }

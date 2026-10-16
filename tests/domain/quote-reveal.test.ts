@@ -10,7 +10,7 @@ it('published_round_has_real_wall_anchor_for_staggered_simulation_display',()=>{
   const restored=JSON.parse(JSON.stringify(s));validateStoredMarket(restored);expect(toDisplayState(restored).publication).toEqual(toDisplayState(s).publication);
 });
 it('manual_correction_identifies_only_the_published_drink',()=>{
-  const s=applyCommand(createMarket(createDefaultConfiguration(undefined,rng),0,rng),{type:'correct',drinkId:'bier',value:220},context(1),rng);
+  const s=applyCommand(createMarket(createDefaultConfiguration(undefined,rng),0,rng),{type:'correct',drinkId:'bier',value:240},context(1),rng);
   expect(toDisplayState(s).publication).toMatchObject({kind:'correction',changedDrinkIds:['bier']});
 });
 it('reveal_parameter_accepts_half_seconds_and_keeps_legacy_configurations_valid',()=>{
