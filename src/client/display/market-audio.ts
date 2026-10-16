@@ -1,5 +1,5 @@
 export function createMarketAudio(button:HTMLButtonElement,slider:HTMLInputElement,controls:HTMLElement){
-  let context:AudioContext|null=null,wanted=true,volume=.25;
+  let context:AudioContext|null=null,wanted=true,volume=1;
   const news=createOriginalClip('/media/breaking-news-intro.m4a'),crash=createOriginalClip('/media/crash-intro.m4a');
   try{wanted=localStorage.getItem('market-sounds')!=='off';const stored=localStorage.getItem('market-sound-volume');if(stored!==null&&Number.isFinite(Number(stored)))volume=Math.max(0,Math.min(1,Number(stored)));}catch{}
   const active=()=>wanted&&context?.state==='running';

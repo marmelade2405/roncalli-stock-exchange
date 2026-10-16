@@ -87,9 +87,8 @@ it('reset_stops_pending_event_and_increases_ids', () => {
   expect(reset.revision).toBeGreaterThan(intro.revision); expect(reset.runId).toBe(intro.runId+1); expect(reset.clock.generation).toBeGreaterThan(intro.clock.generation);
   expect(advance(reset,70_000).phase).toBe('ready'); expect(reset.schedule.pending).toHaveLength(16); expect(reset.historyByDrink.bier).toHaveLength(1);
 });
-it('special_at_limit_is_consumed_without_fake_history', () => {
-  const s = command(live(),{type:'correct',drinkId:'bier',value:300},1000); const pub = advance(command(s,{type:'special',specialId:'bier-up'},60_000),70_000);
-  expect(pub.prices.bier).toBe(300); expect(pub.historyByDrink.bier).toHaveLength(2); expect(pub.schedule.done[0].specialId).toBe('bier-up');
+it('special_at_limit_remains_available_without_fake_history', () => {
+  const s=command(live(),{type:'correct',drinkId:'bier',value:300},1000);expect(()=>command(s,{type:'special',specialId:'bier-up'},60000)).toThrow();expect(s.prices.bier).toBe(300);expect(s.historyByDrink.bier).toHaveLength(2);expect(s.schedule.pending.some(n=>n.specialId==='bier-up')).toBe(true);expect(s.schedule.done).toHaveLength(0);
 });
 it('configured_crash_trends_and_amplitude_are_used', () => {
   const cfg = makeConfiguration([makeDrink()]); cfg.parameters.crashTrendPercent=-20; cfg.parameters.recoveryTrendPercent=50;

@@ -1,0 +1,7 @@
+# Header countdown, start control and boundary examples
+
+Countdown was moved into the header action row, replacing Markt starten. The start button now belongs to Einstellungen -> Steuerung and precedes Abend neu starten / Werkseinstellungen. All element IDs and action bindings remain unique. The old separate full-width countdown row is gone.
+
+Volatility references now label both normal and crash values as Schwankung, including legacy absolute-basis profiles. Reversion shows the configured beer minimum and maximum returning toward the effective Average before noise. Both examples track reversion and the live Average offset. At standard 50% with beer Average 2.20 euros, Min 1.10 -> 1.65 and Max 5.50 -> 3.85. Intrinsic shared grid rows keep the range tracks aligned despite longer examples; mobile cards stack.
+
+Verification: build and typecheck pass; 18 relevant existing browser cases pass for normal transition skip, simulation/start/reset, global volatility and reversion/distribution. Tests navigate to the relocated start button and check new volatility wording. Fresh live read-only checks verify unique countdown in the heading, start next to resets, correct actual Min/Max formula output, desktop/tablet track alignment and no horizontal overflow at 1440/1024/375px. Screenshots of header and Steuerung inspected. Actual live values were preserved; no server restart or pricing-model change was needed.

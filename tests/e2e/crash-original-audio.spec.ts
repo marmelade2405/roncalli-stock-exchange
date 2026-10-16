@@ -35,9 +35,9 @@ test('original_crash_audio_uses_real_fifteen_second_media_resumes_and_stops_on_s
   await testApp.barList();await page.goto('/admin');await page.getByLabel('Passwort').fill(testApp.password);
   await page.getByRole('button',{name:'Anmelden',exact:true}).click();
   await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();
-  await page.getByTestId('parameter-crashIntroMs').fill('15');await page.getByTestId('settings-save').click();
+  await page.getByTestId('parameter-crashIntroMs').fill('15');await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByTestId('settings-save').click();
   await expect(page.locator('#settings-note')).toContainText('Vor dem');
-  await page.getByRole('tab',{name:'Steuerung',exact:true}).click();await page.getByTestId('sound-toggle').click();
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByTestId('sound-toggle').click();
   await expect(page.getByTestId('sound-toggle')).toHaveAttribute('aria-pressed','true');
   await expect.poll(()=>page.evaluate(()=>(window as unknown as CrashProbe).decodedCrash)).toBe(1);
   await testApp.externalCommand({type:'simulation',enabled:true,speed:1});await testApp.externalCommand({type:'start'});

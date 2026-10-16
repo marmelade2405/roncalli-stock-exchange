@@ -19,13 +19,13 @@ async function login(page:Page,password:string){
 test('average_slider_changes_future_targets_without_moving_live_prices_overrides_or_timer',async({page,testApp})=>{
   await testApp.barList();await login(page,testApp.password);
   const slider=page.getByRole('slider',{name:'Globaler Average',exact:true});
-  await expect(slider).toHaveAttribute('min','-10');await expect(slider).toHaveAttribute('max','10');await expect(slider).toHaveAttribute('step','1');await expect(slider).toHaveValue('0');
+  await expect(slider).toHaveAttribute('min','-50');await expect(slider).toHaveAttribute('max','200');await expect(slider).toHaveAttribute('step','1');await expect(slider).toHaveValue('0');
   await testApp.externalCommand({type:'override',scope:'normal',drinkId:'bier',value:200});
-  await page.getByRole('button',{name:'Markt starten',exact:true}).click();await expect(page.locator('#phase-label')).toHaveText('Kurse live');
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByRole('button',{name:'Markt starten',exact:true}).click();await expect(page.locator('#phase-label')).toHaveText('Kurse live');
   const before=await snapshot(page);await setAverage(page,10);const after=await snapshot(page);
   expect(after.state.prices).toEqual(before.state.prices);expect(after.state.overrides).toEqual(before.state.overrides);expect(after.state.deadline).toBe(before.state.deadline);expect(after.state.config).toEqual(before.state.config);expect({...after.clock,generation:0}).toEqual({...before.clock,generation:0});
   await expect(page.getByTestId('market-average-value')).toHaveText('+10 %');
-  await expect(page.getByTestId('market-average-summary')).toContainText('Bier 2,20 € → 2,42 €');await expect(page.getByTestId('market-average-summary')).toContainText('Wasser bleibt gratis');
+  await expect(page.getByTestId('market-average-summary')).toContainText('Bier 2,20 € → 2,42 €');await expect(page.getByTestId('market-average-summary')).toContainText('Referenzbeispiel: Bier');await expect(page.getByTestId('market-average-summary')).not.toContainText('Wasser bleibt gratis');
   await page.getByRole('button',{name:'Börsencrash auslösen',exact:true}).click();await expect(page.locator('#phase-label')).toHaveText('Preiswechsel läuft');await expect(slider).toBeEnabled();await setAverage(page,-10);
   expect((await snapshot(page)).state.prices.wasser).toBe(0);
   for(const width of[1440,375]){await page.setViewportSize({width,height:900});const panel=page.getByTestId('market-volatility-panel');await panel.scrollIntoViewIfNeeded();const bounds=await panel.boundingBox();expect(bounds!.x).toBeGreaterThanOrEqual(0);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(width);}
@@ -41,20 +41,20 @@ test('average_is_saved_immediately_and_reloaded_targets_never_compound',async({p
 });
 
 test('average_remains_live_during_running_and_paused_simulation',async({page,testApp})=>{
-  await testApp.barList();await login(page,testApp.password);await page.getByRole('tab',{name:'Steuerung',exact:true}).click();await page.getByTestId('simulation-enabled').check();
-  await page.getByRole('button',{name:'Markt starten',exact:true}).click();await setAverage(page,5);
-  await page.getByTestId('simulation-pause').click();await expect.poll(async()=>(await snapshot(page)).clock.paused).toBe(true);
+  await testApp.barList();await login(page,testApp.password);await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByTestId('simulation-enabled').check();
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByRole('button',{name:'Markt starten',exact:true}).click();await setAverage(page,5);
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByTestId('simulation-pause').click();await expect.poll(async()=>(await snapshot(page)).clock.paused).toBe(true);
   const before=await snapshot(page);await setAverage(page,-5);const after=await snapshot(page);
   expect({...after.clock,generation:0}).toEqual({...before.clock,generation:0});expect(after.state.prices).toEqual(before.state.prices);expect(after.state.deadline).toBe(before.state.deadline);
 });
 
 test('live_average_refreshes_dirty_distribution_and_unrelated_save_preserves_percent',async({page,testApp})=>{
   await testApp.barList();await login(page,testApp.password);await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();
-  await page.getByLabel('Average € in Verteilung',{exact:true}).fill('2,50');await page.clock.fastForward(250);
-  await setAverage(page,10);await expect(page.getByTestId('distribution-source')).toContainText('Entwurf');await expect(page.getByLabel('Average € in Verteilung',{exact:true})).toHaveValue('2,50');
+  await page.getByLabel('Average € für Bier',{exact:true}).fill('2,50');await page.clock.fastForward(250);
+  await setAverage(page,10);await expect(page.getByTestId('distribution-source')).toContainText('Entwurf');await expect(page.getByLabel('Average € für Bier',{exact:true})).toHaveValue('2,50');
   await expect(page.getByTestId('distribution-chart')).toHaveAttribute('data-average-cents','275');
   await expect(page.locator('.distribution-average')).toContainText('2,75 €');
-  await page.getByTestId('settings-save').click();await expect(page.locator('#settings-note')).toContainText('Vor dem');
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByTestId('settings-save').click();await expect(page.locator('#settings-note')).toContainText('Vor dem');
   const state=(await snapshot(page)).state;expect(state.parameters.marketAveragePercent).toBe(10);expect(state.config.find(drink=>drink.id==='bier')!.averageCents).toBe(250);
   await expect(page.getByTestId('market-average-summary')).toContainText('Bier 2,50 € → 2,75 €');
 });
@@ -77,7 +77,7 @@ test('failed_average_command_rolls_back_and_factory_reset_clears_the_error',asyn
   await testApp.barList();await login(page,testApp.password);await setAverage(page,3);
   await page.route('**/api/admin/commands',async route=>{if(route.request().postDataJSON().command.type==='market-average')await route.fulfill({status:400,json:{code:'INVALID_INPUT',message:'Average wurde abgelehnt.'}});else await route.continue();});
   await inputAverage(page,9);await expect(page.getByTestId('market-average-error')).toHaveText('Average wurde abgelehnt.');await expect(page.getByTestId('market-average')).toHaveValue('3');
-  await page.getByRole('tab',{name:'Steuerung',exact:true}).click();await page.getByTestId('reset-factory').click();await page.getByTestId('reset-confirm').click();
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByTestId('reset-factory').click();await page.getByTestId('reset-confirm').click();
   await expect(page.getByTestId('market-average')).toHaveValue('0');await expect(page.getByTestId('market-average-error')).toBeEmpty();
 });
 
@@ -99,4 +99,10 @@ test('reset_during_average_response_discards_old_desire_and_preserves_new_input'
   await inputAverage(page,9);await received;await testApp.externalCommand({type:'reset',kind:'factory'});await expect(page.getByTestId('market-average')).toHaveValue('0');
   await inputAverage(page,-3);await expect(page.getByTestId('market-average')).toHaveValue('-3');release();
   await expect.poll(async()=>(await snapshot(page)).state.parameters.marketAveragePercent).toBe(-3);await expect(page.getByTestId('market-average')).toHaveValue('-3');await expect(page.getByTestId('market-average-error')).toBeEmpty();
+});
+
+test('expanded_average_range_saves_both_endpoints_and_scales_price_limits',async({page,testApp})=>{
+ await testApp.barList();await login(page,testApp.password);
+ for(const [percent,target] of [[-50,'1,10 €'],[200,'6,60 €']]as const){await setAverage(page,percent);await expect(page.getByTestId('market-average-summary')).toContainText(`Bier 2,20 € → ${target}`);await page.reload();await expect(page.getByTestId('market-average')).toHaveValue(String(percent));const s=(await snapshot(page)).state;expect(s.prices.bier).toBe(220);expect(s.prices.wasser).toBe(0);const beer=s.drinks.find(d=>d.id==='bier')!;expect(beer.minCents).toBe(percent===200?330:60);expect(beer.maxCents).toBe(percent===200?1650:280);}
+ await page.getByRole('tab',{name:'Kurse',exact:true}).click();await expect(page.locator('#normal-table')).toContainText('3,30');await expect(page.locator('#normal-table')).toContainText('16,50');await page.getByTestId('normal-bier-input').fill('10,00');await page.getByTestId('normal-bier-input').press('Enter');await expect(page.getByTestId('normal-bier-status')).toHaveText('Gespeichert');await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await expect(page.locator('.distribution-parameters')).toContainText('Min 3,30 € · Max 16,50 €');await expect(page.getByTestId('distribution-error')).toBeEmpty();
 });

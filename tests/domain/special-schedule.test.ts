@@ -24,7 +24,7 @@ it('direct_consumption_removes_only_selected_slot', () => {
   const s = consumeSpecial(three(),'b',200);
   expect(s.pending).toEqual([{specialId:'a',offsetMs:100},{specialId:'c',offsetMs:900}]);
   expect(s.done).toEqual([{specialId:'b',offsetMs:600,publishedAt:200}]);
-  expect(() => consumeSpecial(s,'b',300)).toThrow();
+  expect(consumeSpecial(s,'b',300).done).toEqual([{specialId:'b',offsetMs:600,publishedAt:300}]);
 });
 it('duplicate_manual_slots_are_rejected', () => {
   expect(()=>createSpecialSchedule(['a','a'],makeConfiguration().parameters,midpointRng)).toThrow();

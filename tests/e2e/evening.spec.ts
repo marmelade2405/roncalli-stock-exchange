@@ -10,7 +10,7 @@ test('evening_flow_preserves_previews_and_resets_timer', async ({ page, context,
   const second = await context.newPage(); await testApp.attachPage(second);
   await Promise.all([first.goto('/display'), second.goto('/display')]);
   await expect(first.getByTestId('display-price-bier')).toContainText('2,00');
-  await page.getByRole('button', { name: 'Markt starten', exact: true }).click();
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByRole('button', { name: 'Markt starten', exact: true }).click();
   await testApp.advanceTo(60_000); await page.getByRole('button', { name: 'Börsencrash auslösen', exact: true }).click();
   await testApp.advanceTo(70_000);
   await expect(first.getByTestId('display-price-bier')).toContainText('1,40'); await expect(second.getByTestId('display-price-bier')).toContainText('1,40');
@@ -27,11 +27,11 @@ test('evening_flow_preserves_previews_and_resets_timer', async ({ page, context,
   await expect(page.getByTestId('normal-bier-input')).toHaveValue('2,50');
   await expect(second.getByTestId('display-countdown')).toHaveText('20:00');
   blocked = false; await first.reload(); await expect(first.getByTestId('display-price-bier')).toContainText('1,50');
-  await page.getByRole('button', { name: 'Laufliste', exact: true }).click();
+  await page.getByRole('tab',{name:'Gästeansicht',exact:true}).click();await page.getByRole('button', { name: 'Laufliste', exact: true }).click();
   await expect(first.getByTestId('display-ticker')).toBeVisible(); await expect(second.getByTestId('display-ticker')).toBeVisible();
   await testApp.advanceTo(1_570_000);
   await expect(page.getByTestId('normal-bier-input')).toHaveValue('');
-  await page.getByRole('button', { name: 'Übersicht', exact: true }).click();
+  await page.getByRole('tab',{name:'Gästeansicht',exact:true}).click();await page.getByRole('button', { name: 'Übersicht', exact: true }).click();
   await expect(first.getByTestId('display-price-bier')).toContainText('2,50'); await expect(second.getByTestId('display-price-bier')).toContainText('2,50');
   await expect(second.getByTestId('display-change-bier')).toContainText('66,7');
 });

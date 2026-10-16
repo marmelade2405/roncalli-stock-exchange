@@ -1,0 +1,5 @@
+# Compact guest display header
+
+Moved the existing fullscreen control out of the brand block to the header's upper-right corner. Reduced desktop bottom padding from 48 to 24px (36px with a simulation badge). This recovers 24px of height in the ordinary header and 12px in simulation while retaining title/crash/countdown alignment. Small screens no longer need a separate fullscreen row below the title; the small brand label is placed left, fullscreen right.
+
+Verification: build passes. Live read-only browser checks at 1920, 1440, 1366, 1024, 650 and 390px, with and without the simulation badge, confirm the three main blocks remain vertically aligned, fullscreen is top-right, controls do not overlap and the page does not overflow horizontally. Desktop/mobile screenshots inspected. The first mobile click check found the transparent brand box intercepted the button; raising the control's stacking order fixed it. A fresh normal click enters fullscreen and hides the control. No market data or pricing logic changed.

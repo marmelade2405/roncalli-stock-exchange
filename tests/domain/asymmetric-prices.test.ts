@@ -3,8 +3,8 @@ import {DEFAULT_DRINKS} from '../../src/domain/defaults.js';
 import {randomPrice as engineRandomPrice} from '../../src/domain/prices.js';
 import {simulatePriceDistribution} from '../../src/domain/price-distribution.js';
 import {DEFAULT_PARAMETERS} from '../../src/domain/parameters.js';
-// Preserve explicit absolute-width fixtures for legacy algorithm coverage.
-const randomPrice:typeof engineRandomPrice=(d,c,k,r,p)=>engineRandomPrice(d,c,k,r,{...(p??DEFAULT_PARAMETERS),marketVolatilityPercent:undefined});
+// Preserve explicit absolute widths and individual reversion for legacy coverage.
+const randomPrice:typeof engineRandomPrice=(d,c,k,r,p)=>engineRandomPrice(d,c,k,r,{...(p??DEFAULT_PARAMETERS),marketVolatilityPercent:undefined,marketReversionPercent:undefined});
 const defaultBeer=DEFAULT_DRINKS.find(d=>d.id==='bier')!,beer={...defaultBeer,startCents:180,averageCents:180,minCents:110,maxCents:500,amplitudeCents:50,reversionPercent:75};
 it('halved_defaults_reduce_variance_without_moving_the_price_average',()=>{
   const old=simulatePriceDistribution({...defaultBeer,amplitudeCents:100,reversionPercent:50}),next=simulatePriceDistribution(defaultBeer);

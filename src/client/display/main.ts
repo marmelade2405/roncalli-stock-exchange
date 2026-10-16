@@ -1,4 +1,5 @@
 import './display.css';
+import {animationParameters} from '../shared/animation-parameters.js';
 import './quote-layout.css';
 import {applyQuoteReveal} from './quote-reveal.js';
 import {clearCharts} from './chart.js';
@@ -28,6 +29,7 @@ async function skipTransition(){if(!state||!authenticated||skipPending||metadata
 function bindSkipButtons(container:HTMLElement,selector:string){const disabled=!authenticated||!connected||!freshness.isFresh(performance.now())||metadata?.clock.mode!=='simulation'||state?.phase!=='transition'||skipPending;for(const button of container.querySelectorAll<HTMLButtonElement>(selector)){button.disabled=disabled;button.onclick=()=>{void skipTransition();};}const hint=container.querySelector<HTMLElement>('.transition-skip-hint');if(hint)hint.hidden=disabled;}
 function frame() {
   if (!state) return;
+  const parameters=animationParameters(state);
   const now = clock.now(performance.now()); const model = getDisplayModel(state, now, connected,freshness.isFresh(performance.now()));
   const newsKey=state.phase==='transition'&&state.news&&state.deadline!==null?`${state.runId}:${state.news.id}:${state.deadline}`:null;
   const newsDeadlineAt=metadata&&state.deadline!==null&&metadata.clock.rate>0?receivedAt+(state.deadline-metadata.clock.marketNow)/metadata.clock.rate:Infinity;
@@ -52,12 +54,13 @@ function frame() {
   if (model.waitingForPublication) { element('waiting-title').textContent = 'Warte auf aktuelle Preise'; element('waiting-detail').textContent = connected ? 'Der nächste Preisstand wird freigegeben' : 'Die Verbindung zum Markt wird wiederhergestellt'; }
   const news=model.transitionKind==='special'&&state.news!==null&&(!model.waitingForPublication||holdNews);
   element('breaking-news').hidden=!news;
-  if(news){renderBreakingNews(element('breaking-news'),state.news!,holdNews?1:model.remainingMs??0,state.drinks.find(d=>d.id===state!.news!.drinkId)?.name??state.news!.drinkId,state.parameters.newsMs,state.parameters.newsIntroMs??Math.min(5000,state.parameters.newsMs-1000),metadata?.clock.paused===true,state.parameters.newsTextRevealMs??3000,state.parameters.newsQuoteRevealMs??4500,authenticated&&metadata?.clock.mode==='simulation'&&!holdNews);bindSkipButtons(element('breaking-news'),'.news-skip-count');}else pauseNewsIntroVideo(element('breaking-news'));
+  if(news&&element('breaking-news').dataset.eventKey!==newsKey){pauseNewsIntroVideo(element('breaking-news'));delete element('breaking-news').dataset.newsId;element('breaking-news').dataset.eventKey=newsKey!;}
+  if(news){renderBreakingNews(element('breaking-news'),state.news!,holdNews?1:model.remainingMs??0,state.drinks.find(d=>d.id===state!.news!.drinkId)?.name??state.news!.drinkId,parameters.newsMs,parameters.newsIntroMs??Math.min(5000,parameters.newsMs-1000),metadata?.clock.paused===true,parameters.newsTextRevealMs??3000,parameters.newsQuoteRevealMs??4500,authenticated&&metadata?.clock.mode==='simulation'&&!holdNews);bindSkipButtons(element('breaking-news'),'.news-skip-count');}else pauseNewsIntroVideo(element('breaking-news'));
   const tape=state.recentNews??(state.showOpeningNews?openingNews:null);
   element('news-tape').hidden=!model.showPrices||!tape;
   if(model.showPrices&&metadata&&tape)renderNewsTape(element('news-tape'),tape,state.recentNews?(state.drinks.find(d=>d.id===tape.drinkId)?.name??tape.drinkId):'',metadata.serverNow+performance.now()-receivedAt);
   element('transition').hidden = !model.transitionKind || model.waitingForPublication||news;
-  if (model.transitionKind && !model.waitingForPublication&&!news){renderTransition(element('transition'), model.transitionKind, model.remainingMs ?? 0,model.transitionKind==='crash'?crashIntroDuration(state.parameters):state.parameters.transitionMs,state.crashPercent,metadata?.clock.paused===true);bindSkipButtons(element('transition'),'.transition-count');}else pauseNewsIntroVideo(element('transition'));
+  if (model.transitionKind && !model.waitingForPublication&&!news){renderTransition(element('transition'), model.transitionKind, model.remainingMs ?? 0,model.transitionKind==='crash'?crashIntroDuration(parameters):parameters.transitionMs,state.crashPercent,metadata?.clock.paused===true);bindSkipButtons(element('transition'),'.transition-count');}else pauseNewsIntroVideo(element('transition'));
 }
 function open() {
   connectMarket<DisplayState>('public', {

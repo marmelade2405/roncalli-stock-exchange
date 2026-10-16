@@ -24,15 +24,15 @@ test('message_announces_the_quote_after_intro_with_a_delay_and_pause_freezes_the
   await testApp.advanceTo(30000);await expect(page.getByTestId('display-price-bier')).toContainText('1,50');
 });
 
-test('cheaper_beer_announces_an_unchanged_price_and_reduced_motion_wraps_the_quote',async({page,testApp})=>{
+test('cheaper_beer_announces_a_further_price_drop_and_reduced_motion_wraps_the_quote',async({page,testApp})=>{
   await testApp.barList();await testApp.externalCommand({type:'simulation',enabled:true});
   await page.request.post('/api/login',{headers:{Origin:testApp.baseURL},data:{password:testApp.password}});
   const state=(await(await page.request.get('/api/admin/state')).json()).state;
   await testApp.externalCommand({type:'configure',drinks:state.config.map((drink:{id:string;name:string})=>drink.id==='bier'?{...drink,name:'Bier mit einem ausgesprochen langen Getränkenamen'}:drink),parameters:{...state.parameters,newsMs:25000,newsIntroMs:10000}});
   await page.emulateMedia({reducedMotion:'reduce'});await page.setViewportSize({width:390,height:844});await page.goto('/display');
-  await testApp.externalCommand({type:'start'});await testApp.externalCommand({type:'correct',drinkId:'bier',value:110});await testApp.externalCommand({type:'special',specialId:'bier-down'});await testApp.advanceTo(18200);
-  const announcement=page.getByTestId('news-announcement');await expect(announcement).toBeVisible();await expect(announcement).toHaveAttribute('data-direction','flat');
-  await expect(page.getByTestId('news-announcement-change')).toContainText('±0,00');await expect(page.getByTestId('news-announcement-change')).toContainText('±0,0 %');await expect(page.getByTestId('news-announcement-price')).toContainText('1,10');
+  await testApp.externalCommand({type:'start'});await testApp.externalCommand({type:'correct',drinkId:'bier',value:140});await testApp.externalCommand({type:'special',specialId:'bier-down'});await testApp.advanceTo(18200);
+  const announcement=page.getByTestId('news-announcement');await expect(announcement).toBeVisible();await expect(announcement).toHaveAttribute('data-direction','down');
+  await expect(page.getByTestId('news-announcement-change')).toContainText('−0,20');await expect(page.getByTestId('news-announcement-change')).toContainText('−14,3 %');await expect(page.getByTestId('news-announcement-price')).toContainText('1,20');
   for(const id of ['news-announcement-drink','news-announcement-change','news-announcement-price'])await expect(page.getByTestId(id)).toHaveCSS('transform','none');
   const panel=await announcement.boundingBox(),frame=await page.getByTestId('breaking-news').boundingBox();expect(panel!.x).toBeGreaterThanOrEqual(frame!.x);expect(panel!.x+panel!.width).toBeLessThanOrEqual(frame!.x+frame!.width);
   expect(await announcement.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);

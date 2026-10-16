@@ -1,0 +1,7 @@
+# Admin layout reorganization
+
+Three global price controls now occupy equal-width cards in a desktop row; narrow screens stack them. All three range tracks have the same vertical center at 1440 and 1024px. Reference examples and live controls are retained.
+
+Navigation now orders Breaking News, Kurse, Crash, Gästeansicht, Einstellungen. New browsers start on Breaking News; other valid saved selections persist. An old saved Steuerung selection redirects to Einstellungen. Guest display design controls have a dedicated panel. The simulation and reset section is the final section of Einstellungen, with room above the fixed save toolbar. Countdown, global controls, sound and market action buttons remain accessible above navigation.
+
+Checks: build and typecheck pass. 42 distinct existing browser cases passed across navigation, simulation/reset, all three global price controls, display design, chart modes, ticker layout, sound and settings-save behavior. Tests were updated to navigate to the moved controls. Two old fixture issues exposed by the broader checks were corrected: the history-fill test starts with a real change from the current 2.20 beer default; integer-rounded plot widths allow the observed one-pixel rounding difference. Live read-only browser checks confirm equal card/track positions, no horizontal overflow at 1440/1024/375px, isolated guest controls, simulation as the final settings section and old-tab migration. Screenshots visually inspected. No price-model or live-market changes were made.

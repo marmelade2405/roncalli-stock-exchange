@@ -1,0 +1,13 @@
+# Live settings and read-only price distribution
+
+The distribution no longer contains an Average editor or any input fields. It remains a drink-selectable chart and follows drafts made in the drink table and global controls.
+
+Settings fields and Save remain enabled in a running normal/crash/transition market. Connected administrators can edit timing parameters, drink names/categories/Averages and news texts/targets. The existing derived price fields remain read-only and water remains fixed at zero. Adding/removing drinks is a separate preparation operation; the live catalogue retains its IDs so active and consumed news remain consistent.
+
+Running configuration saves update the configuration without starting a new market, clearing real history, moving the current deadline or reopening consumed headlines. Changed price settings regenerate future forecasts. Existing manual overrides are preserved unless they exceed the new bounds, in which case they are limited to a valid price. Already published and frozen prices retain validated historical price bands; future generated prices use the new bounds. A larger history window simulates additional startup points without changing real history.
+
+As requested by the user, timing changes apply to the next round/event. The current round's transition boundary and any begun animation are captured. Frozen news retains its text and timing through the intro, message and ticker; quote-reveal timing is stored with each publication. Existing storage and the one-time legacy shot migration support the additional optional metadata.
+
+Validation: build/typecheck and all 288 unit/client/server tests across 53 files pass. Seven initial live-configuration cases failed before implementation; eight now cover configuration continuity, bounds, duration, frozen news, preserved automatic boundaries and history-window size. 43 distinct relevant browser cases passed across live settings, distribution, global controls, standard admin operations and intro skipping. Live checks verified zero distribution inputs, editable parameter fields, enabled Save during a normal market and preserved run/schedule/prices/deadline across reload. Final server was reloaded with a saved backup; the final read-only check matched that backup, with the market then in preparation. Screenshots of parameter controls and read-only distribution were inspected. No live settings were changed by the verification scripts.
+
+The automatic approval reviewer briefly hit a usage limit during final testing; after the user asked to continue, the required executions were approved and completed. No approval block remains.

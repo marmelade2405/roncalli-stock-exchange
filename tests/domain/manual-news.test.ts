@@ -17,23 +17,26 @@ it('legacy_planned_slots_never_trigger_automatically_or_become_simulation_bounda
   const later=advanceMarket(state,context(300000),rng);expect(later.phase).toBe('normal');expect(later.schedule.done).toHaveLength(0);expect(later.prices).toEqual(state.prices);
   const stepped=applyCommand(later,{type:'step'},context(300000),rng);expect(stepped.transition?.kind).toBe('normal');expect(stepped.clock.marketAnchor).toBe(1190000);expect(stepped.schedule.done).toHaveLength(0);
 });
-it('bene_keeps_cheaper_beer_in_preview_announcement_and_publication_and_runs_only_once',()=>{
+it('bene_pushes_cheaper_beer_lower_in_preview_announcement_and_publication_and_can_repeat',()=>{
   const config=createDefaultConfiguration(undefined,rng);const bier=config.drinks.find(d=>d.id==='bier')!,special=config.specials.find(s=>s.id==='bier-down')!;
-  for(const [current,price,delta,limited] of [[110,110,0,true],[140,140,0,true],[150,150,0,false],[180,150,-30,false],[500,150,-350,false]] as const)expect(previewSpecial(bier,current,special)).toMatchObject({price,delta,limited});
-  let state=createMarket(config,0,rng);state=applyCommand(state,{type:'correct',drinkId:'bier',value:110},context(0),rng);state=applyCommand(state,{type:'start'},context(0),rng);
-  const intro=applyCommand(state,{type:'special',specialId:'bier-down'},context(0),rng);expect(toAdminState(intro).specialPreviews['bier-down']).toMatchObject({price:110,delta:0,percent:0,limited:true});expect(toDisplayState(intro).news).toMatchObject({direction:'down',quote:{priceCents:110,deltaCents:0,percent:0}});
-  const published=advanceMarket(intro,context(30000),rng);expect(published.prices.bier).toBe(110);expect(published.prices.wein).toBe(state.prices.wein);expect(published.historyByDrink.bier).toEqual(state.historyByDrink.bier);expect(toDisplayState(published).recentNews?.direction).toBe('down');expect(()=>applyCommand(published,{type:'special',specialId:'bier-down'},context(31000),rng)).toThrow();
+  for(const [current,price,delta,limited] of [[110,110,0,true],[140,120,-20,true],[150,130,-20,true],[180,150,-30,false],[500,150,-350,false]] as const)expect(previewSpecial(bier,current,special)).toMatchObject({price,delta,limited});
+  let state=createMarket(config,0,rng);state=applyCommand(state,{type:'correct',drinkId:'bier',value:140},context(0),rng);state=applyCommand(state,{type:'start'},context(0),rng);
+  const intro=applyCommand(state,{type:'special',specialId:'bier-down'},context(0),rng);expect(toAdminState(intro).specialPreviews['bier-down']).toMatchObject({price:120,delta:-20,limited:true});expect(toDisplayState(intro).news).toMatchObject({direction:'down',quote:{priceCents:120,deltaCents:-20}});
+  const published=advanceMarket(intro,context(30000),rng);expect(published.prices.bier).toBe(120);expect(published.prices.wein).toBe(state.prices.wein);expect(published.historyByDrink.bier).toHaveLength(state.historyByDrink.bier.length+1);expect(toDisplayState(published).recentNews?.direction).toBe('down');expect(applyCommand(published,{type:'special',specialId:'bier-down'},context(31000),rng).transition!.prices.bier).toBe(110);
 });
 it('hesham_effect_reaches_the_upper_extreme_band_with_existing_price_bounds',()=>{
   const c=createDefaultConfiguration(undefined,rng),drink=c.drinks.find(d=>d.id==='wein')!,special=c.specials.find(s=>s.id==='wein-up')!;
-  expect(previewSpecial(drink,300,special).price).toBe(810);expect(previewSpecial(drink,500,special).price).toBe(810);expect(previewSpecial(drink,850,special).price).toBe(850);
+  expect(previewSpecial(drink,300,special).price).toBe(810);expect(previewSpecial(drink,500,special).price).toBe(810);expect(previewSpecial(drink,850,special).price).toBe(870);
 });
 it('invalid_fixed_special_prices_are_rejected_before_publication',()=>{
   for(const targetCents of [NaN,null,'150',155,100,560,-1]){const c=createDefaultConfiguration(undefined,rng);Object.assign(c.specials.find(s=>s.id==='bier-down')!,{targetCents});expect(()=>validateConfiguration(c)).toThrow();}
 });
 it('published_fixed_price_direction_survives_history_trimming_and_reload',()=>{
-  let state=createMarket(createDefaultConfiguration(undefined,rng),0,rng);state=applyCommand(state,{type:'correct',drinkId:'bier',value:110},context(0),rng);state=applyCommand(state,{type:'start'},context(0),rng);state=advanceMarket(applyCommand(state,{type:'special',specialId:'bier-down'},context(0),rng),context(30000),rng);
+  let state=createMarket(createDefaultConfiguration(undefined,rng),0,rng);state=applyCommand(state,{type:'correct',drinkId:'bier',value:140},context(0),rng);state=applyCommand(state,{type:'start'},context(0),rng);state=advanceMarket(applyCommand(state,{type:'special',specialId:'bier-down'},context(0),rng),context(30000),rng);
   expect(toDisplayState(state).recentNews?.direction).toBe('down');
   for(let i=0;i<50;i++)state=applyCommand(state,{type:'correct',drinkId:'bier',value:i%2?170:160},context(31000+i),rng);
   state=JSON.parse(JSON.stringify(state));validateStoredMarket(state);expect(toDisplayState(state).recentNews?.direction).toBe('down');
+});
+it('news_at_a_price_boundary_is_rejected_without_consuming_the_headline',()=>{
+ let s=applyCommand(createMarket(createDefaultConfiguration(undefined,rng),0,rng),{type:'start'},context(0),rng);const min=s.drinks.find(d=>d.id==='lillet-wildberry')!.minCents;s=applyCommand(s,{type:'correct',drinkId:'lillet-wildberry',value:min},context(1000),rng);const news=s.specials.find(n=>n.drinkId==='lillet-wildberry'&&n.direction==='down')!;expect(()=>applyCommand(s,{type:'special',specialId:news.id},context(1100),rng)).toThrow();expect(s.schedule.pending.some(n=>n.specialId===news.id)).toBe(true);
 });

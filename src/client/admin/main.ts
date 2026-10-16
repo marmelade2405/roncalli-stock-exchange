@@ -1,4 +1,5 @@
 import './admin.css';
+import {animationParameters} from '../shared/animation-parameters.js';
 import {createAdminNavigation} from './navigation.js';
 import type { AdminState, MarketCommand, Snapshot } from '../shared/protocol.js';
 import { ApiError, connectMarket, readJson, sendCommand, syncServerClock } from '../shared/connection.js';
@@ -10,6 +11,7 @@ import { createSpecialQueue } from './special-queue.js';
 import { createSimulationPanel } from './simulation-panel.js';
 import { createResetDialog } from './reset-dialog.js';
 import {createTickerSpeed} from './ticker-speed.js';
+import {createMarketReversion} from './market-reversion.js';
 import {createMarketAverage} from './market-average.js';
 import {createMarketVolatility} from './market-volatility.js';
 import {createChartMode} from './chart-mode.js';
@@ -30,8 +32,8 @@ const queue=createSpecialQueue(element('special-queue'),{trigger:(specialId,revi
 const simulation=createSimulationPanel(element('simulation-panel'),command=>execute(command).catch(error=>{report(error);throw error;}));
 const tickerSpeed=createTickerSpeed(element('ticker-speed-control'),command=>execute(command).catch(error=>{report(error);throw error;}));
 const marketVolatility=createMarketVolatility(element('market-volatility-control'),command=>execute(command));
-const averageRoot=document.createElement('div');averageRoot.id='market-average-control';element('market-volatility-control').append(averageRoot);
-const marketAverage=createMarketAverage(averageRoot,command=>execute(command));
+const marketAverage=createMarketAverage(element('market-average-control'),command=>execute(command));
+const marketReversion=createMarketReversion(element('market-reversion-control'),command=>execute(command));
 const chartMode=createChartMode(element('chart-mode-control'),command=>execute(command).catch(error=>{report(error);throw error;}));
 const tickerColumns=createTickerColumns(element('ticker-columns-control'),command=>execute(command).catch(error=>{report(error);throw error;}));
 const resetDialog=createResetDialog(element('reset-dialog'),async(kind,revision)=>{try{return await execute({type:'reset',kind},()=>revision);}catch(error){if(error instanceof ApiError&&error.status===409)apply(await readJson('/api/admin/state'));throw error;}});
@@ -42,7 +44,7 @@ const settings = createSettings(element('settings-table'), element('settings-add
   void execute({ type: 'configure', ...config }, () => revision).then(() => { if(state?.runId!==run||session!==auth)return;settings.saved(generation); render(); }).catch(error => { if(state?.runId!==run||session!==auth)return;settings.conflict(state?.revision ?? revision); element('settings-error').textContent = error.message; });
 },render);
 function showLogin() {
-  audio.stop();tickerSpeed.reset();marketVolatility.reset();marketAverage.reset();chartMode.reset();tickerColumns.reset();
+  audio.stop();tickerSpeed.reset();marketVolatility.reset();marketAverage.reset();marketReversion.reset();chartMode.reset();tickerColumns.reset();
   session++; stream?.close(); stream = null; state = null; connected = false;
   normal.reset(); crash.reset(); settings.reset(); queue.reset();simulation.reset();resetDialog.close();operations=Promise.resolve();actionPending=0;metadata=null;element('recovery-table').replaceChildren();
   element('controls').hidden = true; element('logout').hidden = true; element('login-panel').hidden = false;
@@ -50,7 +52,7 @@ function showLogin() {
 }
 function apply(snapshot: Snapshot<AdminState>) {
   if (state && snapshot.state.revision < state.revision) return;
-  if(state&&snapshot.state.runId!==state.runId){normal.reset();crash.reset();settings.reset();queue.reset();simulation.reset();tickerSpeed.reset();marketVolatility.reset();marketAverage.reset();chartMode.reset();tickerColumns.reset();operations=Promise.resolve();actionPending=0;element('global-error').hidden=true;}
+  if(state&&snapshot.state.runId!==state.runId){normal.reset();crash.reset();settings.reset();queue.reset();simulation.reset();tickerSpeed.reset();marketVolatility.reset();marketAverage.reset();marketReversion.reset();chartMode.reset();tickerColumns.reset();operations=Promise.resolve();actionPending=0;element('global-error').hidden=true;}
   clock.sync(snapshot,performance.now(),performance.now());
   if(state?.runId!==snapshot.state.runId)audio.stop();else if(metadata?.clock.paused===false&&snapshot.clock.paused)audio.pause();receivedAt=performance.now();metadata=snapshot;state = snapshot.state;resetDialog.updateRevision(state.revision); render();
 }
@@ -98,25 +100,26 @@ async function savePrice(scope: 'normal' | 'crash', id: string, raw: string, gen
 }
 function renderStatus() {
   if (!state) return;
+  const parameters=animationParameters(state);
   const now = clock.now(performance.now()); const remaining = state.deadline === null ? null : state.deadline - now;
-  if(metadata){const fresh=connected&&performance.now()-receivedAt<15000,model=getDisplayModel(state,now,connected,fresh),allowed=fresh&&!metadata.clock.paused&&audio.active();const introMs=state.parameters.newsIntroMs??Math.min(5000,state.parameters.newsMs-1000),elapsed=state.parameters.newsMs-(remaining??0),newsKey=state.phase==='transition'&&state.nextKind==='special'&&state.news?`${state.runId}:${state.deadline}:${state.news.id}`:null;audio.syncNews(newsKey,elapsed,introMs,allowed&&model.transitionKind==='special'&&!model.waitingForPublication);const crashMs=crashIntroDuration(state.parameters),crashKey=state.phase==='transition'&&state.nextKind==='crash'?`${state.runId}:${state.deadline}:crash`:null;audio.syncCrash(crashKey,crashMs-(remaining??0),crashMs,allowed&&model.transitionKind==='crash'&&!model.waitingForPublication);}
+  if(metadata){const fresh=connected&&performance.now()-receivedAt<15000,model=getDisplayModel(state,now,connected,fresh),allowed=fresh&&!metadata.clock.paused&&audio.active();const introMs=parameters.newsIntroMs??Math.min(5000,parameters.newsMs-1000),elapsed=parameters.newsMs-(remaining??0),newsKey=state.phase==='transition'&&state.nextKind==='special'&&state.news?`${state.runId}:${state.deadline}:${state.news.id}`:null;audio.syncNews(newsKey,elapsed,introMs,allowed&&model.transitionKind==='special'&&!model.waitingForPublication);const crashMs=crashIntroDuration(parameters),crashKey=state.phase==='transition'&&state.nextKind==='crash'?`${state.runId}:${state.deadline}:crash`:null;audio.syncCrash(crashKey,crashMs-(remaining??0),crashMs,allowed&&model.transitionKind==='crash'&&!model.waitingForPublication);}
   element('connection').textContent = connected ? 'Verbunden' : 'Verbindung unterbrochen'; element('connection').className = `badge ${connected ? 'up' : 'down'}`;
   element('countdown').textContent = formatCountdown(remaining);
   element<HTMLButtonElement>('countdown').disabled=!connected||metadata?.clock.mode!=='simulation'||state.phase!=='transition';
-  const outro=state.nextKind==='recovery'||state.nextKind==='special'&&remaining!==null&&remaining<=state.parameters.newsMs-newsIntroDuration(state.parameters);
+  const outro=state.nextKind==='recovery'||state.nextKind==='special'&&remaining!==null&&remaining<=parameters.newsMs-newsIntroDuration(parameters);
   element('skip-intro').textContent=outro?'Ausspieler überspringen':'Einspieler überspringen';
   element<HTMLButtonElement>('skip-intro').disabled=!connected||actionPending>0||state.phase!=='transition'||remaining===null||remaining<=0||!['normal','crash','recovery','special'].includes(state.nextKind??'');
   element('countdown-label').textContent = state.nextKind==='special'?'BREAKING NEWS ENDET IN':state.nextKind === 'recovery' ? 'BIS ZUR ERHOLUNG' : state.nextKind === 'crash' ? 'BIS ZUM CRASH' : 'NÄCHSTE PREISRUNDE';
   element('phase-label').textContent = state.phase === 'ready' ? 'Marktvorbereitung' : state.phase === 'crash' ? 'Börsencrash' : state.phase === 'transition' ? 'Preiswechsel läuft' : remaining !== null && remaining <= 0 ? 'Warte auf Preisfreigabe' : 'Kurse live';
   element('phase-detail').textContent = state.phase === 'ready' ? 'Startpreise sind sichtbar' : state.phase === 'crash' ? `Danach: neue Kurse mit +${state.crashPercent??state.parameters.recoveryTrendPercent} %` : 'Vorgaben gelten für eine Preisrunde';
-  const normalLocked = state.phase === 'normal' && remaining !== null && remaining <= state.parameters.transitionMs;
+  const normalLocked = state.phase === 'normal' && remaining !== null && remaining <= parameters.transitionMs;
   element<HTMLButtonElement>('start').disabled = !connected || state.phase !== 'ready' || actionPending > 0||settings.isDirty();
   element<HTMLButtonElement>('crash').disabled = !connected || state.phase !== 'normal' || normalLocked || actionPending > 0;
   element<HTMLButtonElement>('cancel-crash').disabled=!connected||!(state.phase==='crash'||state.nextKind==='crash');
   element<HTMLButtonElement>('reset-evening').disabled=!connected;element<HTMLButtonElement>('reset-factory').disabled=!connected;
   if(metadata){const snapshot={...metadata,state,clock:{...metadata.clock,marketNow:now}};queue.update(snapshot,connected);simulation.update(snapshot,connected);}
   tickerSpeed.update(state,connected);
-  marketVolatility.update(state,connected);marketAverage.update(state,connected);
+  marketVolatility.update(state,connected);marketAverage.update(state,connected);marketReversion.update(state,connected);
   chartMode.update(state,connected);tickerColumns.update(state,connected);
   document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(button => { button.setAttribute('aria-pressed', String(button.dataset.view === state!.viewMode)); button.disabled = !connected; });
   normal.update(state, connected, now); crash.update(state, connected, now);

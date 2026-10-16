@@ -9,11 +9,11 @@ import {createMarket} from '../../src/domain/market-v2.js';
 import {makeConfiguration} from '../v2-fixtures.js';
 const opened: ReturnType<typeof createApplication>[] = [];
 afterEach(async () => { await Promise.all(opened.splice(0).map(app => app.close())); });
-export async function openApp() {
+export async function openApp(options:{loginNow?:()=>number;loginIpHeader?:'cf-connecting-ip'|'x-real-ip'}={}) {
   let saved: MarketState | null = createMarket(makeConfiguration([makeDrink()]),0,midpointRng); let fault = false; let now = 0;
   const repository = { load: async () => structuredClone(saved), save: async (state: MarketState) => { if (fault) throw Error('Storage failed'); saved = structuredClone(state); } };
   const controller = await createController(repository, { now: () => now, rng: midpointRng, drinks: [makeDrink()] });
-  const app = createApplication({ host: '127.0.0.1', port: 0, stateFile: 'unused', adminPassword: 'test-password', sessionSecret: 'test-only-secret-'.repeat(4), publicOrigin: null, secureCookies: false, clientDir: resolve('dist/client') }, controller, () => now);
+  const app = createApplication({ loginIpHeader:options.loginIpHeader,host: '127.0.0.1', port: 0, stateFile: 'unused', adminPassword: 'test-password', sessionSecret: 'test-only-secret-'.repeat(4), publicOrigin: null, secureCookies: false, clientDir: resolve('dist/client') }, controller, () => now,options.loginNow);
   opened.push(app);
   await new Promise<void>((resolveListen, reject) => { app.server.once('error', reject); app.server.listen(0, '127.0.0.1', () => resolveListen()); });
   const base = `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`;

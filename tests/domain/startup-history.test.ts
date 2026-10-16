@@ -7,7 +7,7 @@ import {createDefaultConfiguration} from '../../src/domain/configuration.js';
 import {validateStoredMarket} from '../../src/server/market-store.js';
 const beer=DEFAULT_DRINKS.find(d=>d.id==='bier')!,water=DEFAULT_DRINKS.find(d=>d.id==='wasser')!,parameters={...DEFAULT_PARAMETERS};
 it('startup_simulation_uses_the_configured_normal_crash_and_recovery_rules_five_times',()=>{
-  const drink={...beer,startCents:1000,averageCents:1000,minCents:0,maxCents:2000,amplitudeCents:0,reversionPercent:0};const history=simulateStartupHistory([drink,water],{...parameters,marketVolatilityPercent:0,historyChanges:14,crashMinPercent:10,crashMaxPercent:10},100000000).bier;
+  const drink={...beer,startCents:1000,averageCents:1000,minCents:0,maxCents:2000,amplitudeCents:0,reversionPercent:0};const history=simulateStartupHistory([drink,water],{...parameters,marketVolatilityPercent:0,marketReversionPercent:0,historyChanges:14,crashMinPercent:10,crashMaxPercent:10},100000000).bier;
   expect(history.filter(p=>p.kind==='crash')).toHaveLength(5);expect(history.filter(p=>p.kind==='recovery')).toHaveLength(5);expect(history[1]).toMatchObject({kind:'normal',price:1000});expect(history[2]).toMatchObject({kind:'crash',price:900});expect(history[3]).toMatchObject({kind:'recovery',price:990});expect(history.at(-1)!.price).toBe(950);
   expect(history.every(p=>p.at>=0&&p.at<100000000&&p.price%10===0)).toBe(true);expect(simulateStartupHistory([drink,water],parameters,100000000).wasser.every(p=>p.price===0)).toBe(true);
 });

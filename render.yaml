@@ -1,0 +1,31 @@
+# Paid web service + persistent disk; review Render's price before creating it.
+services:
+  - type: web
+    name: roncalli-stock-exchange
+    runtime: node
+    region: frankfurt
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: off
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: PUBLIC_ORIGIN="${PUBLIC_ORIGIN:-$RENDER_EXTERNAL_URL}" exec node dist/server/server/main.js
+    healthCheckPath: /health
+    disk:
+      name: market-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 24.16.0
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: LOGIN_IP_HEADER
+        value: cf-connecting-ip
+      - key: STATE_FILE
+        value: /var/data/market.json
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true

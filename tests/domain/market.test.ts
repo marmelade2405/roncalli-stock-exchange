@@ -67,8 +67,8 @@ describe('Marktablauf', () => {
     const crash = applyCommand(started(), { type: 'crash' }, 10_000, midpointRng);
     expect(() => applyCommand(crash, { type: 'crash' }, 10_001, midpointRng)).toThrow();
   });
-  it('configuration_is_locked_after_start', () => {
-    expect(() => applyCommand(started(), { type: 'configure', drinks: [makeDrink()] }, 10, midpointRng)).toThrow();
+  it('configuration_is_live_after_start_without_resetting_the_round', () => {
+    const before=started(),changed=applyCommand(before,{type:'configure',drinks:[makeDrink()]},10,midpointRng);expect(changed.phase).toBe('normal');expect(changed.deadline).toBe(before.deadline);expect(changed.prices).toEqual(before.prices);
   });
   it('view_switch_does_not_redraw_prices', () => {
     const rng = vi.fn(midpointRng);

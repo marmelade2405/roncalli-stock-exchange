@@ -25,7 +25,7 @@ it.each(['normal','special','crash','recovery']as const)('average_change_preserv
  const changed=applyCommand(s,{type:'market-average',percent:-10},context(at+100),rng);expect(changed.transition!.prices).toEqual(s.transition!.prices);expect(changed.deadline).toBe(s.deadline);validateStoredMarket(changed);
 });
 it('average_range_and_legacy_defaults_are_validated_and_noop_does_not_redraw',()=>{
- const c=config();const s=createMarket(c,0,rng);for(const percent of [-11,11,.5,NaN,Infinity])expect(()=>applyCommand(s,{type:'market-average',percent},context(0),rng)).toThrow();for(const percent of [-10,0,10])validateStoredMarket(applyCommand(s,{type:'market-average',percent},context(0),rng));expect(applyCommand(s,{type:'market-average',percent:0},context(0),()=>{throw Error('RNG should not run');})).toBe(s);delete c.parameters.marketAveragePercent;expect(()=>validateConfiguration(c)).not.toThrow();
+ const c=config();const s=createMarket(c,0,rng);for(const percent of [-51,201,.5,NaN,Infinity])expect(()=>applyCommand(s,{type:'market-average',percent},context(0),rng)).toThrow();for(const percent of [-50,-10,0,10,200])validateStoredMarket(applyCommand(s,{type:'market-average',percent},context(0),rng));expect(applyCommand(s,{type:'market-average',percent:0},context(0),()=>{throw Error('RNG should not run');})).toBe(s);delete c.parameters.marketAveragePercent;expect(()=>validateConfiguration(c)).not.toThrow();
 });
 it('simulated_distribution_uses_the_shifted_average_and_fixed_water_stays_free',()=>{
  const shifted=simulatePriceDistribution(drink(),0,10);expect(shifted.meanCents).toBeCloseTo(1100,0);expect(simulatePriceDistribution(config().drinks[1],3,-10).meanCents).toBe(0);

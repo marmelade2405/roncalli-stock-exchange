@@ -10,7 +10,7 @@ export function simulateStartupHistory(drinks:DrinkConfig[],parameters:MarketPar
   const duration=(kind:string)=>kind==='normal'?parameters.normalMs:kind==='crash'?parameters.transitionMs:parameters.crashMs;
   const span=events.reduce((sum,kind)=>sum+duration(kind),parameters.normalMs);let elapsed=0,prices=Object.fromEntries(drinks.map(d=>[d.id,d.startCents])),crashPercent:number|undefined;
   const history:PriceHistories=Object.fromEntries(drinks.map(d=>[d.id,[{at:Math.max(0,at-span),price:d.startCents,revision,kind:'start' as const}]]));
-  for(const kind of events){elapsed+=duration(kind);if(kind==='normal')prices=buildPreview(drinks,prices,'normal',rng,parameters);else if(kind==='crash'){const crash=prepareCrash(drinks,prices,parameters,rng);prices=crash.prices;crashPercent=crash.percent;}else prices=crashPercent===undefined?buildPreview(drinks,prices,'recovery',rng,parameters):percentPrices(drinks,prices,crashPercent);
+  for(const kind of events){elapsed+=duration(kind);if(kind==='normal')prices=buildPreview(drinks,prices,'normal',rng,parameters);else if(kind==='crash'){const crash=prepareCrash(drinks,prices,parameters,rng);prices=crash.prices;crashPercent=crash.percent;}else prices=crashPercent===undefined?buildPreview(drinks,prices,'recovery',rng,parameters):percentPrices(drinks,prices,crashPercent,parameters);
     for(const drink of drinks)history[drink.id].push({at:Math.max(0,at-span+elapsed),price:prices[drink.id],kind,revision});
   }
   return history;

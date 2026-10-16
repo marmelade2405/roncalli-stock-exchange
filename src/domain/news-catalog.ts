@@ -145,7 +145,7 @@ export function createSpecialCatalog(drinks: DrinkConfig[]): SpecialDefinition[]
   }));
 }
 const RONCALLI_NEWS:Record<string,Partial<SpecialDefinition>>={
-  'bier-down':{targetCents:150,headline:'Bene eröffnet die RageCage-Börse',body:'Der Turnierleiter flutet den Markt mit flüssiger Starthilfe. Bier erhält den offiziellen Turnierkurs: 1,50 €. Analysten rechnen mit steigenden Becherumsätzen.'},
+  'bier-down':{targetCents:150,headline:'Bene eröffnet die RageCage-Börse',body:'Der Turnierleiter flutet den Markt mit flüssiger Starthilfe. Bier erhält einen Turnierkurs von höchstens 1,50 €. Bereits günstigere Bieraktien bekommen einen zusätzlichen Abschlag. Analysten rechnen mit steigenden Becherumsätzen.'},
   'bier-up':{headline:'Johnny liquidiert die Bierreserven',body:'Ein einziger Trichterauftrag leert das Orderbuch. Das Angebot schrumpft schneller als Johnnys Durst – Bier-Futures schießen nach oben.'},
   'wein-up':{headline:'Hesham betritt den Handelsraum',body:'Die Eingangstür war noch nicht zu, da meldete der Weinmarkt bereits einen Nachfrageschock. Händler decken sich hektisch mit Trauben-Futures ein; die Preisgrenze bleibt die letzte Handelsbarriere.'},
   'wodka-energy-up':{headline:'Simone löst Wodka-Kaufpanik aus',body:'Ihr Erscheinen wird als bullisches Signal gewertet. Händler sichern hektisch ihre Bestände; der Energy-Sektor zieht solidarisch mit.'},

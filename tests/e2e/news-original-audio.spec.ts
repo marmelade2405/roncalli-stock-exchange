@@ -41,8 +41,8 @@ test('original_news_audio_decodes_real_media_and_resumes_only_the_remaining_intr
   await page.getByLabel('Passwort').fill(testApp.password);await page.getByRole('button',{name:'Anmelden',exact:true}).click();
   await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();
   await page.getByTestId('parameter-newsMs').fill('30');await page.getByTestId('parameter-newsIntroMs').fill('10');
-  await page.getByTestId('settings-save').click();await expect(page.locator('#settings-note')).toContainText('Vor dem');
-  await page.getByRole('tab',{name:'Steuerung',exact:true}).click();await page.getByTestId('sound-toggle').click();
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByTestId('settings-save').click();await expect(page.locator('#settings-note')).toContainText('Vor dem');
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByTestId('sound-toggle').click();
   await expect(page.getByTestId('sound-toggle')).toHaveAttribute('aria-pressed','true');
   await expect.poll(()=>page.evaluate(()=>(window as unknown as AudioProbe).decodedNews)).toBe(1);
   await testApp.externalCommand({type:'simulation',enabled:true,speed:1});
@@ -68,7 +68,7 @@ test('failed_original_news_download_keeps_other_sounds_available_without_page_er
   const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
   await page.route('**/media/breaking-news-intro.m4a',route=>route.fulfill({status:404,body:'missing'}));
   await testApp.barList();await page.goto('/admin');await page.getByLabel('Passwort').fill(testApp.password);
-  await page.getByRole('button',{name:'Anmelden',exact:true}).click();await page.getByRole('tab',{name:'Steuerung',exact:true}).click();
+  await page.getByRole('button',{name:'Anmelden',exact:true}).click();await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();
   await page.getByTestId('sound-toggle').click();await expect(page.getByTestId('sound-toggle')).toHaveAttribute('aria-pressed','true');
   await testApp.externalCommand({type:'start'});await testApp.externalCommand({type:'special',specialId:'bier-down'});
   await testApp.advanceTo(5000);await expect(page.getByTestId('sound-toggle')).toHaveAttribute('aria-pressed','true');expect(errors).toEqual([]);

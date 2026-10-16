@@ -1,3 +1,4 @@
+import {scaledDrinkConfig} from '../../domain/prices.js';
 import type { AdminState, DrinkConfig } from '../shared/protocol.js';
 import { formatEuro, formatChange, inputEuro } from '../shared/format.js';
 import { createInstantPriceEditor } from './instant-price.js';
@@ -25,7 +26,8 @@ export function createPriceTable(root: HTMLElement, average: HTMLElement, scope:
       const isPending = state.phase === 'transition' && state.nextKind === scope;
       const preview = isPending ? state.pendingPrices : state.previews[scope];
       let sum = 0; let count=0; let complete = true;
-      for (const drink of state.config) {
+      for (const standard of state.config) {
+        const drink=scaledDrinkConfig(standard,state.parameters.marketAveragePercent??0);
         const row = rows.get(drink.id) ?? createRow(drink);
         row.tr.querySelector('.drink-name')!.textContent = drink.name;
         row.tr.querySelector('.drink-category')!.textContent = drink.category;

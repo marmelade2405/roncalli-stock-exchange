@@ -25,11 +25,11 @@ Aktuelle Standard-Averages: Bier 2,20 €, Aperol 4,00 €, Shots 1,00 €, Soft
 | Erdbeerlimes | 0,50 | 2,50 | 1,00 |
 | Wasser | 0,00 | 0,00 | 0,00 |
 
-Normale Runden kombinieren Zufall und Rückführung zum Zielpreis. Der Abstand zum Ziel wird vor der Zufallsschwankung um 50 % verringert. Beispiel Bier: aktuell 5,00 €, Average 2,20 € → Mittelpunkt der nächsten Runde 3,60 €. Crash und Erholung behalten ihre eigenen Trends.
+Normale Runden kombinieren Zufall und Rückführung zum Zielpreis. Der Abstand zum Ziel wird vor der Zufallsschwankung standardmäßig um 50 % verringert. „Rückführung zum Average“ ist als globaler Live-Regler von 0 bis 100 % einstellbar; 0 % deaktiviert die Zielbindung, 100 % führt vollständig zum Ziel zurück. Beispiel Bier: aktuell 5,00 €, Average 2,20 € → Mittelpunkt der nächsten Runde 3,60 €. Crash und Erholung behalten ihre eigenen Trends.
 
 Die Schwankung richtet sich asymmetrisch nach dem Platz unter und über dem Average. Bei Bier mit Basis 0,55 € ergeben sich am Average gewöhnliche Ausschläge bis etwa −0,28 € / +0,83 € vor Rundung. Kleinere negative Bewegungen sind häufiger, größere positive seltener. Seltene, ausbalancierte Spitzen können direkt Min oder Max erreichen. Marktvolatilität stellt die Basis direkt als 0–75 % des wirksamen Average ein; Standard 25 %. Beispiel 40 %: Bier 0,88 €, Longdrink 1,40 €. Crashs verwenden die doppelte Basis. Breaking-News-Ziele sind davon unabhängig.
 
-Der Live-Regler „Globaler Average“ verschiebt das Ziel um −10 bis +10 % des gespeicherten Standard-Average. Bier: −10 % → 1,98 €, 0 % → 2,20 €, +10 % → 2,42 €. Die Min-/Max-Grenzen bleiben auf den Standard bezogen. Wiederholte Änderungen oder Werkseinstellungen erhöhen die Basis nicht erneut. Aktuelle Verkaufspreise, manuelle Vorgaben und festgeschriebene Ereigniskurse ändern sich durch den Regler nicht.
+Der Live-Regler „Globaler Average“ verschiebt das Ziel um −90 bis +1000 % des gespeicherten Standard-Average. Bier: −10 % → 1,98 €, 0 % → 2,20 €, +10 % → 2,42 €. Die Min-/Max-Grenzen skalieren mit demselben Faktor wie der Average und werden auf gültige 10-Cent-Stufen gerundet. Wiederholte Änderungen oder Werkseinstellungen erhöhen die Basis nicht erneut. Aktuelle Verkaufspreise und festgeschriebene Ereigniskurse bleiben erhalten. Manuelle Vorgaben außerhalb der neuen Grenzen werden angepasst.
 
 Die Admin-Linienvorschau verwendet die tatsächliche Berechnung. Sie zeigt die angenäherte langfristige Verteilung normaler Runden einschließlich Rundung, Grenzen und Spitzen. Ein einzelner Abend mit Specials oder manuellen Eingriffen hat keinen garantierten exakten Gesamtmittelwert.
 

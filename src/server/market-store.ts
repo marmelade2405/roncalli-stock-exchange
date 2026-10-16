@@ -1,8 +1,11 @@
+import {scaledDrinkConfig} from '../domain/prices.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import type { MarketState, Rng, PriceMap, OverrideMap, PricePoint, PriceHistories } from '../domain/model.js';
+import {validateRecordedPrice} from '../domain/live-configuration.js';
+import {validateParameters} from '../domain/parameters.js';
 import { writeAtomic } from './atomic-file.js';
 import { validateConfiguration, createDefaultConfiguration } from '../domain/configuration.js';
-import { validateOverride, buildPreview } from '../domain/prices.js';
+import { validateOverride, validateDrinks, buildPreview } from '../domain/prices.js';
 import { createMarket } from '../domain/market-v2.js';
 import { validateLegacyMarket, type LegacyMarketState } from '../domain/legacy.js';
 import { initialHistory, recordChanges } from '../domain/history.js';
@@ -16,31 +19,38 @@ export function validateStoredMarket(value: unknown): asserts value is MarketSta
   if (!record(value)) invalid(); const s=value as unknown as MarketState;
   if (s.schemaVersion !== 2 || !stamp(s.revision) || !stamp(s.runId) || !['ready','normal','crash','transition'].includes(s.phase) || !['overview','ticker'].includes(s.viewMode)) invalid();
   validateConfiguration(s);
+  if(s.lastSpecialSnapshot!==undefined&&(!record(s.lastSpecialSnapshot)||!s.specials.some(n=>n.id===s.lastSpecialSnapshot!.id&&n.drinkId===s.lastSpecialSnapshot!.drinkId)||!stamp(s.lastSpecialSnapshot.publishedAt)||typeof s.lastSpecialSnapshot.headline!=='string'||typeof s.lastSpecialSnapshot.body!=='string'))invalid();
+  if(s.roundTransitionMs!==undefined&&(!Number.isSafeInteger(s.roundTransitionMs)||s.roundTransitionMs<1000||s.roundTransitionMs>60000||s.roundTransitionMs%1000!==0))invalid();
   if(s.chartMode!==undefined&&!['line','bars','bars-gap'].includes(s.chartMode))invalid();
   if(s.tickerColumns!==undefined&&s.tickerColumns!==2&&s.tickerColumns!==3)invalid();
   for(const field of['nextCrashPercent','activeCrashPercent']as const)if(s[field]!==undefined&&(!Number.isInteger(s[field])||s[field]!<1||s[field]!>90))invalid();
   if(s.tickerOffsetRows!==undefined&&(!Number.isFinite(s.tickerOffsetRows)||s.tickerOffsetRows<0||s.tickerOffsetRows>Number.MAX_SAFE_INTEGER))invalid();
   if(s.tickerWallAt!==undefined&&!stamp(s.tickerWallAt))invalid();
   if(s.publication!==undefined){const p=s.publication;if(!record(p)||!stamp(p.wallAt)||!stamp(p.revision)||p.revision>s.revision||!['normal','crash','recovery','special','correction'].includes(p.kind)||!Array.isArray(p.changedDrinkIds)||new Set(p.changedDrinkIds).size!==p.changedDrinkIds.length||p.changedDrinkIds.some(id=>!s.drinks.some(d=>d.id===id)))invalid();}
+  for(const publication of [s.publication,s.roundPublication])if(publication?.revealMs!==undefined&&(!Number.isInteger(publication.revealMs)||publication.revealMs<0||publication.revealMs>5000||publication.revealMs%50!==0))invalid();
   if(s.quoteRevealUntil!==undefined&&!stamp(s.quoteRevealUntil))invalid();
   if(s.roundPublication!==undefined){const p=s.roundPublication;if(!record(p)||!stamp(p.wallAt)||!stamp(p.revision)||p.revision>s.revision||!['normal','crash','recovery'].includes(p.kind)||!Array.isArray(p.changedDrinkIds)||new Set(p.changedDrinkIds).size!==p.changedDrinkIds.length||p.changedDrinkIds.some(id=>!s.drinks.some(d=>d.id===id)))invalid();}
   if(s.quotePublicationOverrides!==undefined){if(!record(s.quotePublicationOverrides))invalid();for(const[id,p]of Object.entries(s.quotePublicationOverrides))if(!s.drinks.some(d=>d.id===id)||!record(p)||!stamp(p.wallAt)||!stamp(p.revision)||p.revision>s.revision)invalid();}
-  const drinks=new Map(s.drinks.map(d=>[d.id,d]));
-  if(s.startupHistoryByDrink!==undefined){if(!record(s.startupHistoryByDrink)||Object.keys(s.startupHistoryByDrink).length!==drinks.size)invalid();for(const[id,points]of Object.entries(s.startupHistoryByDrink)){const drink=drinks.get(id);if(!drink||!Array.isArray(points)||!points.length||points.length>51)invalid();let previousAt=-1;for(const point of points){if(!record(point)||!stamp(point.at)||point.at<previousAt||!Number.isSafeInteger(point.price)||!stamp(point.revision)||point.revision>s.revision||!['start','normal','crash','recovery'].includes(point.kind))invalid();validateOverride(drink!,point.price);previousAt=point.at;}}}
-  const map=(v:PriceMap|OverrideMap,complete:boolean,nullable=false) => {
+  const drinks=new Map(s.drinks.map(d=>[d.id,scaledDrinkConfig(d,s.parameters.marketAveragePercent??0)]));
+  if(s.historicalPriceConfigs!==undefined){if(!record(s.historicalPriceConfigs))invalid();for(const[id,past]of Object.entries(s.historicalPriceConfigs)){const d=drinks.get(id);if(!d||!Array.isArray(past))invalid();for(const old of past){validateDrinks([old]);if(old.id!==id||old.fixedPriceCents!==d!.fixedPriceCents)invalid();}}}
+  const recorded=(d:typeof s.drinks[number],price:number|null)=>validateRecordedPrice(d,price,[s.drinks.find(base=>base.id===d.id)!,...(s.historicalPriceConfigs?.[d.id]??[])]);
+  if(s.startupHistoryByDrink!==undefined){if(!record(s.startupHistoryByDrink)||Object.keys(s.startupHistoryByDrink).length!==drinks.size)invalid();for(const[id,points]of Object.entries(s.startupHistoryByDrink)){const drink=drinks.get(id);if(!drink||!Array.isArray(points)||!points.length||points.length>51)invalid();let previousAt=-1;for(const point of points){if(!record(point)||!stamp(point.at)||point.at<previousAt||!Number.isSafeInteger(point.price)||!stamp(point.revision)||point.revision>s.revision||!['start','normal','crash','recovery'].includes(point.kind))invalid();recorded(drink!,point.price);previousAt=point.at;}}}
+  const map=(v:PriceMap|OverrideMap,complete:boolean,nullable=false,historical=false) => {
     if (!record(v) || (complete && Object.keys(v).length !== drinks.size)) invalid();
-    for (const [id,price] of Object.entries(v)) { const d=drinks.get(id); if (!d || (complete && !nullable && price === null)) invalid(); validateOverride(d!,price); }
+    for (const [id,price] of Object.entries(v)) { const d=drinks.get(id); if (!d || (complete && !nullable && price === null)) invalid(); if(historical)recorded(d!,price);else validateOverride(d!,price); }
   };
-  map(s.prices,true); map(s.previousPrices,true,true);
+  map(s.prices,true,false,true); map(s.previousPrices,true,true,true);
   if (!record(s.previews) || !record(s.overrides)) invalid();
   for (const scope of ['normal','crash'] as const) map(s.overrides[scope],false);
-  for (const kind of ['normal','crash','recovery'] as const) if (s.previews[kind] !== null) map(s.previews[kind]!,true);
+  for (const kind of ['normal','crash','recovery'] as const) if (s.previews[kind] !== null) map(s.previews[kind]!,true,false,s.transition?.kind===kind);
   if (!stamp(s.publishedAt) || !stamp(s.viewEpoch) || (s.deadline !== null && !stamp(s.deadline))) invalid();
   if ((s.phase === 'ready') !== (s.deadline === null) || (s.phase === 'transition') !== (s.transition !== null)) invalid();
   if (s.transition !== null) {
     const t=s.transition;
     if (!record(t) || !['normal','crash','recovery','special'].includes(t.kind) || t.publishAt !== s.deadline || (t.normalDeadline !== null && !stamp(t.normalDeadline))) invalid();
-    map(t.prices,true);
+    if(t.parameters!==undefined)validateParameters(t.parameters);
+    if(t.specialSnapshot!==undefined&&(!record(t.specialSnapshot)||t.kind!=='special'||t.specialSnapshot.id!==t.specialId||!s.specials.some(n=>n.id===t.specialSnapshot!.id&&n.drinkId===t.specialSnapshot!.drinkId)||typeof t.specialSnapshot.headline!=='string'||typeof t.specialSnapshot.body!=='string'))invalid();
+    map(t.prices,true,false,true);
     if (t.kind === 'crash') map(t.interruptedNormalPreview!,true);
     if ((t.kind === 'normal' || t.kind === 'special') && t.normalDeadline === null) invalid();
   }
@@ -64,24 +74,25 @@ export function validateStoredMarket(value: unknown): asserts value is MarketSta
     if (!record(slot) || !ids.has(slot.specialId) || seen.has(slot.specialId) || !stamp(slot.offsetMs) || !stamp(slot.publishedAt) || (slot.direction!==undefined&&slot.direction!=='up'&&slot.direction!=='down')) invalid(); seen.add(slot.specialId);
   }
   if (seen.size !== ids.size || (q.startedAt === null && q.done.length)) invalid();
-  if (s.transition?.kind === 'special' && !q.pending.some(x=>x.specialId === s.transition!.specialId)) invalid();
+  if (s.transition?.kind === 'special' && ![...q.pending,...q.done].some(x=>x.specialId === s.transition!.specialId)) invalid();
   if (!record(s.historyByDrink) || Object.keys(s.historyByDrink).length !== drinks.size) invalid();
   for (const [id,points] of Object.entries(s.historyByDrink)) {
     const d=drinks.get(id); if (!d || !Array.isArray(points) || !points.length || points.length > 51) invalid();
     let at=-1; let revision=-1; let price:number|null=null;
     for (const p of points) {
       if (!record(p) || !Number.isSafeInteger(p.price) || !stamp(p.at) || p.at < at || !stamp(p.revision) || p.revision < revision || p.revision > s.revision || !['start','normal','crash','recovery','special','correction'].includes(p.kind) || p.price === price) invalid();
-      validateOverride(d!,p.price); at=p.at; revision=p.revision; price=p.price;
+      recorded(d!,p.price); at=p.at; revision=p.revision; price=p.price;
     }
     if (price !== s.prices[id]) invalid();
   }
   if (!Array.isArray(s.history) || s.history.length > 100) invalid();
-  for (const h of s.history) { if (!record(h) || !stamp(h.revision) || h.revision > s.revision || !stamp(h.publishedAt) || !['normal','crash','recovery','special','correction'].includes(h.kind)) invalid(); map(h.prices,true); }
+  for (const h of s.history) { if (!record(h) || !stamp(h.revision) || h.revision > s.revision || !stamp(h.publishedAt) || !['normal','crash','recovery','special','correction'].includes(h.kind)) invalid(); map(h.prices,true,false,true); }
 }
 export function migrateLegacy(legacy: LegacyMarketState, wallNow: number, rng: Rng): MarketState {
   validateLegacyMarket(legacy);
   const config=createDefaultConfiguration(legacy.drinks,rng);
   delete config.parameters.marketVolatilityPercent;
+  delete config.parameters.marketReversionPercent;
   config.parameters.crashIntroMs=config.parameters.transitionMs;
   const state=createMarket(config,wallNow,rng);
   state.revision=legacy.revision; state.phase=legacy.phase; state.prices={...legacy.prices}; state.previews=structuredClone(legacy.previews); state.overrides=structuredClone(legacy.overrides);

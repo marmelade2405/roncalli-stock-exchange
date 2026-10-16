@@ -6,7 +6,7 @@ test('all_business_parameters_are_editable_before_start', async ({ page, testApp
   await page.getByTestId('parameter-normalMs').fill('15'); await page.getByTestId('parameter-crashMs').fill('6');
   await page.locator('.news-editor').filter({has:page.getByTestId('news-bier-down-headline')}).locator('summary').click();
   await page.getByTestId('news-bier-down-headline').fill('Biermarkt unter Druck'); await expect(page.getByTestId('news-bier-down-percent')).toHaveCount(0);await page.getByTestId('news-bier-down-target').fill('1,10');
-  await page.getByTestId('settings-save').click(); await expect(page.locator('#settings-note')).toContainText('Vor dem');
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByTestId('settings-save').click(); await expect(page.locator('#settings-note')).toContainText('Vor dem');
   await page.reload(); await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();
   await expect(page.getByTestId('parameter-normalMs')).toHaveValue('15'); await expect(page.getByTestId('parameter-crashMs')).toHaveValue('6');
   await expect(page.getByTestId('news-bier-down-headline')).toHaveValue('Biermarkt unter Druck');await expect(page.getByTestId('news-bier-down-target')).toHaveValue('1,10');
@@ -25,7 +25,7 @@ test('instant_price_error_keeps_draft',async ({page,testApp})=>{
   await expect(page.getByTestId('current-bier-value')).toContainText('2,00');
 });
 test('instant_price_locked_during_transition',async ({page,testApp})=>{
-  await signIn(page,testApp); await page.getByRole('button',{name:'Markt starten',exact:true}).click();
+  await signIn(page,testApp); await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByRole('button',{name:'Markt starten',exact:true}).click();
   await page.getByRole('button',{name:'Börsencrash auslösen',exact:true}).click();
   await expect(page.getByTestId('current-bier-input')).toBeDisabled(); await expect(page.getByTestId('current-bier-save')).toBeDisabled();
 });
@@ -63,7 +63,7 @@ test('round_clears_only_used_fields', async ({ page, testApp }) => {
   await expect(page.getByTestId('normal-bier-effective')).toContainText('2,50');
   await page.getByRole('tab',{name:'Crash',exact:true}).click();await page.getByTestId('crash-bier-input').fill('1,40'); await page.getByTestId('crash-bier-input').blur();
   await expect(page.getByTestId('crash-bier-effective')).toContainText('1,40');
-  await page.getByRole('button', { name: 'Markt starten', exact: true }).click();
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByRole('button', { name: 'Markt starten', exact: true }).click();
   await page.getByRole('button', { name: 'Börsencrash auslösen', exact: true }).click();
   await testApp.advanceTo(10_000);
   await expect(page.getByTestId('crash-bier-input')).toHaveValue('');
@@ -89,9 +89,9 @@ test('outdated_socket_message_is_ignored', async ({ page, testApp }) => {
   route.send(oldMessage);
   await expect(page.getByTestId('normal-bier-effective')).toContainText('2,50');
 });
-test('configuration_is_locked_while_running', async ({ page, testApp }) => {
-  await signIn(page, testApp); await page.getByRole('button', { name: 'Markt starten', exact: true }).click();
-  await expect(page.getByTestId('settings-save')).toBeDisabled();
+test('configuration_is_editable_while_running', async ({ page, testApp }) => {
+  await signIn(page, testApp); await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByRole('button', { name: 'Markt starten', exact: true }).click();
+  await expect(page.getByTestId('settings-save')).toBeEnabled();
 });
 test('configuration_save_preserves_newer_draft', async ({ page, testApp }) => {
   await signIn(page, testApp);
@@ -107,21 +107,21 @@ test('configuration_save_preserves_newer_draft', async ({ page, testApp }) => {
     held = true;
     const response = await route.fetch(); captured(); await gate; await route.fulfill({ response });
   });
-  await page.getByTestId('settings-save').click(); await received;
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByTestId('settings-save').click(); await received;
   await name.fill('Bier neuer Entwurf');
   const saved = page.waitForResponse(response => response.url().endsWith('/api/admin/commands'));
   const finished = page.waitForEvent('requestfinished', { predicate: request => request.url().endsWith('/api/admin/commands') });
   release(); await saved;
   // Wait for the acknowledged response to reach the UI's fetch/JSON continuation.
   await finished;
-  await page.getByTestId('settings-save').click();
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByTestId('settings-save').click();
   await expect(page.locator('#normal-table')).toContainText('Bier neuer Entwurf');
 });
 test('login_recovers_when_initial_time_request_fails', async ({ page, testApp }) => {
   await page.route('**/api/time', route => route.abort('failed'));
   await signIn(page, testApp);
-  await expect(page.getByRole('button', { name: 'Markt starten', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: 'Markt starten', exact: true }).click();
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await expect(page.getByRole('button', { name: 'Markt starten', exact: true })).toBeEnabled();
+  await page.getByRole('tab',{name:'Einstellungen',exact:true}).click();await page.getByRole('button', { name: 'Markt starten', exact: true }).click();
   await expect(page.getByTestId('countdown')).toHaveText('20:00');
   await testApp.advanceTo(1000);
   await expect(page.getByTestId('countdown')).toHaveText('19:59');

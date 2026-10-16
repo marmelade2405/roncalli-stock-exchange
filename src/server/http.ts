@@ -4,9 +4,10 @@ import { extname, resolve, sep } from 'node:path';
 import { DomainError, type CommandRequest, type MarketCommand } from '../domain/types.js';
 import { RevisionConflictError, type MarketController } from './controller.js';
 import { createAuth, isAllowedOrigin } from './auth.js';
+import {createLoginLimiter,loginClientKey} from './login-limit.js';
 import { attachRealtime } from './realtime.js';
 import {isSimulationSpeed} from '../domain/simulation-speed.js';
-import {isMarketVolatility,isMarketVolatilityPercent,isMarketAveragePercent} from '../domain/parameters.js';
+import {isMarketVolatility,isMarketVolatilityPercent,isMarketAveragePercent,isMarketReversionPercent} from '../domain/parameters.js';
 import type { ServerConfig } from './config.js';
 class HttpError extends Error { constructor(public status: number, public code: string, message: string) { super(message); } }
 const record = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -30,6 +31,7 @@ function parseCommand(value: Record<string, unknown>): CommandRequest {
   switch (command.type) {
     case 'start': case 'crash': case 'cancel-crash': case 'step':case 'skip-transition':case 'skip-intro': break;
     case 'ticker-speed':if(!Number.isSafeInteger(command.rowMs))invalid();break;
+    case 'market-reversion':if(!isMarketReversionPercent(command.percent))invalid();break;
     case 'market-average':if(!isMarketAveragePercent(command.percent))invalid();break;
     case 'market-volatility':if('percent' in command ? !isMarketVolatilityPercent(command.percent)||'factor' in command : !isMarketVolatility(command.factor))invalid();break;
     case 'chart-mode':if(!['line','bars','bars-gap'].includes(String(command.mode)))invalid();break;
@@ -46,8 +48,9 @@ function parseCommand(value: Record<string, unknown>): CommandRequest {
   }
   return { expectedRevision: value.expectedRevision as number, command: command as unknown as MarketCommand };
 }
-export function createApplication(config: ServerConfig, controller: MarketController, now: () => number) {
-  const auth = createAuth(config);
+export function createApplication(config: ServerConfig, controller: MarketController, now: () => number,loginNow:()=>number=Date.now) {
+  const auth = createAuth(config),loginLimiter=createLoginLimiter(loginNow);
+  function checkLoginLimit(key:string,retryAfter=loginLimiter.retryAfter(key),response:ServerResponse){if(retryAfter>0){response.setHeader('Retry-After',String(retryAfter));throw new HttpError(429,'LOGIN_RATE_LIMITED',`Zu viele falsche Anmeldeversuche. Bitte in ${Math.ceil(retryAfter/60)} Minuten erneut versuchen.`);}}
   let checkSessions = () => {};
   const server = createServer((request, response) => {
     response.setHeader('Cache-Control', 'no-store'); response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -69,10 +72,11 @@ export function createApplication(config: ServerConfig, controller: MarketContro
     if(method==='GET'&&path==='/api/admin/session'){json(response,200,{authenticated:auth.isAdmin(request.headers.cookie)});return;}
     if (method === 'GET' && path === '/api/admin/state') { requireAdmin(request); json(response, 200, controller.adminSnapshot()); return; }
     if (method === 'POST' && path === '/api/login') {
-      requireOrigin(request); const input = await body(request);
+      requireOrigin(request);const client=loginClientKey(request,config);checkLoginLimit(client,undefined,response);const input=await body(request);
       if (typeof input.password !== 'string') throw new HttpError(400, 'INVALID_INPUT', 'Bitte ein Passwort eingeben.');
-      const cookie = auth.login(input.password);
-      if (!cookie) throw new HttpError(401, 'UNAUTHORIZED', 'Das Passwort ist nicht korrekt.');
+      checkLoginLimit(client,undefined,response);const cookie=auth.login(input.password);
+      if(!cookie){checkLoginLimit(client,loginLimiter.failure(client),response);throw new HttpError(401,'UNAUTHORIZED','Das Passwort ist nicht korrekt.');}
+      loginLimiter.success(client);
       response.setHeader('Set-Cookie', cookie); json(response, 200, controller.adminSnapshot()); return;
     }
     if (method === 'POST' && path === '/api/logout') {
